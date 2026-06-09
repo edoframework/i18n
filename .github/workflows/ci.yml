@@ -12,6 +12,11 @@ on:
 env:
   JAVA_VERSION: '25'
   NODE_VERSION: '20'
+  # Credentials for the private Genius Fish Maven repo (repo.genius.fish), used to
+  # bootstrap the mill-release plugin. Empty when the secrets are unset, in which
+  # case the credentials step below is skipped.
+  REPO_USERNAME: ${{ secrets.REPO_USERNAME }}
+  REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
 
 jobs:
   validate:
@@ -45,6 +50,16 @@ jobs:
           key: mill-${{ runner.os }}-${{ hashFiles('build.mill', '.mill-version') }}
           restore-keys: |
             mill-${{ runner.os }}-
+
+      # Authenticate coursier to repo.genius.fish so Mill can fetch the
+      # fish.genius::mill-release plugin during build bootstrap. Skipped when the
+      # REPO_USERNAME/REPO_TOKEN secrets are not set.
+      - name: Configure coursier credentials (repo.genius.fish)
+        if: ${{ env.REPO_USERNAME != '' }}
+        run: |
+          mkdir -p ~/.config/coursier
+          printf 'genius.host=repo.genius.fish\ngenius.username=%s\ngenius.password=%s\ngenius.auto=true\n' \
+            "$REPO_USERNAME" "$REPO_TOKEN" > ~/.config/coursier/credentials.properties
 
       - name: Check formatting
         run: ./mill __.checkFormat
