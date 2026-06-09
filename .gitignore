@@ -1,0 +1,42 @@
+# Mill
+out/
+
+# Build / IDE metadata
+.bsp/
+.bloop/
+.metals/
+.scala-build/
+
+# IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Scala.js / Node
+**/node_modules
+**/.parcel-cache
+**/dist
+
+# Legacy sbt residue
+target/
+project/target/
+.cache
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Logs and crash dumps
+*.log
+hs_err_pid*
+
+# Compiled bits
+*.class
+
+# Genius Fish release flow state (written by /gf-standards:release-prepare)
+.release-state.json
+
+# Generated code-review reports (gf-standards:review)
+reviews/

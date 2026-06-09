@@ -1,0 +1,186 @@
+//| repositories:
+//| - https://repo.genius.fish/releases
+//| - https://repo.genius.fish/snapshots
+//| mvnDeps:
+//| - com.goyeau::mill-scalafix::0.6.0
+//| - fish.genius::mill-release::0.4.0
+
+package build
+
+import coursier.core.Authentication
+import coursier.maven.MavenRepository
+import mill.*
+import mill.scalalib.*
+import mill.scalalib.publish.*
+import mill.scalalib.scalafmt.*
+import mill.scalajslib.*
+
+import com.goyeau.mill.scalafix.ScalafixModule
+import fish.genius.mill.release.GeniusFishReleaseModule
+
+// ---------------------------------------------------------------------------
+// Version catalog
+// ---------------------------------------------------------------------------
+object V {
+  val scala         = "3.8.3"
+  val scalaJS       = "1.21.0"
+  val zio           = "2.1.26"
+  val zioJson       = "0.9.2"
+  val scalaJavaTime = "2.6.0"
+}
+
+// ---------------------------------------------------------------------------
+// Release module (git-tag versioning, release workflow, AI release notes)
+// ---------------------------------------------------------------------------
+object release extends GeniusFishReleaseModule
+
+// ---------------------------------------------------------------------------
+// Shared publishing settings for JVM and JS modules
+// ---------------------------------------------------------------------------
+trait GeniusFishPublishSettings extends PublishModule {
+  def publishVersion = release.gitVersion()
+
+  def pomSettings = PomSettings(
+    description = "Composable, type-safe i18n for Scala 3 — locales, messages, ICU-style formatting; JVM & JS",
+    organization = "fish.genius",
+    url = "https://github.com/genius-fish/i18n",
+    licenses = Seq(License.MIT),
+    versionControl = VersionControl.github("genius-fish", "i18n"),
+    developers = Seq(
+      Developer("jlust", "Jurgen Lust", "https://genius.fish"),
+    ),
+  )
+
+  def geniusFishRepositories: Seq[MavenRepository] = {
+    val auth = for {
+      user  <- sys.env.get("REPO_USERNAME")
+      token <- sys.env.get("REPO_TOKEN")
+    } yield Authentication(user, token)
+
+    Seq(
+      MavenRepository("https://repo.genius.fish/releases", authentication = auth),
+      MavenRepository("https://repo.genius.fish/snapshots", authentication = auth),
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Base trait for JVM modules
+// ---------------------------------------------------------------------------
+trait GeniusFishModule extends ScalaModule with ScalafmtModule with ScalafixModule with GeniusFishPublishSettings {
+  def scalaVersion = V.scala
+
+  def scalacOptions = Seq(
+    "-Wunused:all",
+    "-unchecked",
+    "-deprecation",
+    "-feature",
+    "-Xmax-inlines:128",
+  )
+
+  def repositoriesTask = Task.Anon {
+    super.repositoriesTask() ++ geniusFishRepositories
+  }
+
+  trait GeniusFishTests extends ScalaTests with ScalafmtModule with ScalafixModule {
+    def testFramework = "zio.test.sbt.ZTestFramework"
+
+    def forkArgs = Seq(
+      "-Xmx4G",
+      "-Xms2G",
+      "-Xss16M",
+      "-XX:+UseG1GC",
+      "-XX:MaxGCPauseMillis=200",
+    )
+
+    def mvnDeps = Seq(
+      mvn"dev.zio::zio-test:${V.zio}",
+      mvn"dev.zio::zio-test-sbt:${V.zio}",
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Base trait for Scala.js modules
+// ---------------------------------------------------------------------------
+trait GeniusFishJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModule with GeniusFishPublishSettings {
+  def scalaVersion   = V.scala
+  def scalaJSVersion = V.scalaJS
+
+  def scalacOptions = Seq(
+    "-Wunused:all",
+    "-unchecked",
+    "-deprecation",
+    "-feature",
+    "-Xmax-inlines:128",
+  )
+
+  def repositoriesTask = Task.Anon {
+    super.repositoriesTask() ++ geniusFishRepositories
+  }
+
+  // java.time on Scala.js is provided by scala-java-time (+ tzdb for zone data).
+  def jsDeps = Seq(
+    mvn"io.github.cquiroz::scala-java-time::${V.scalaJavaTime}",
+    mvn"io.github.cquiroz::scala-java-time-tzdb::${V.scalaJavaTime}",
+  )
+
+  trait GeniusFishJSTests extends ScalaJSTests with ScalafmtModule with ScalafixModule {
+    def testFramework = "zio.test.sbt.ZTestFramework"
+
+    def mvnDeps = Seq(
+      mvn"dev.zio::zio-test::${V.zio}",
+      mvn"dev.zio::zio-test-sbt::${V.zio}",
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Workspace root for resolving cross-platform source paths
+// ---------------------------------------------------------------------------
+val wsRoot = os.Path(sys.env("MILL_WORKSPACE_ROOT"))
+
+// ---------------------------------------------------------------------------
+// Module: i18n (cross-platform JVM + JS)
+//   shared sources compile on both platforms; jvm/ and js/ hold the
+//   platform-specific number/date formatters.
+// ---------------------------------------------------------------------------
+object i18n extends Module {
+  object jvm extends GeniusFishModule {
+    def artifactName = "genius-i18n"
+
+    def sources = Task.Sources(
+      wsRoot / "shared" / "src",
+      wsRoot / "jvm" / "src",
+    )
+
+    def mvnDeps = Seq(
+      mvn"dev.zio::zio-json:${V.zioJson}",
+    )
+
+    object test extends GeniusFishTests {
+      def sources = Task.Sources(
+        wsRoot / "shared" / "test" / "src",
+      )
+    }
+  }
+
+  object js extends GeniusFishJSModule {
+    def artifactName = "genius-i18n"
+
+    def sources = Task.Sources(
+      wsRoot / "shared" / "src",
+      wsRoot / "js" / "src",
+    )
+
+    def mvnDeps = Seq(
+      mvn"dev.zio::zio-json::${V.zioJson}",
+    ) ++ jsDeps
+
+    object test extends GeniusFishJSTests {
+      def sources = Task.Sources(
+        wsRoot / "shared" / "test" / "src",
+      )
+    }
+  }
+}
