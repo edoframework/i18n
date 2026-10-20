@@ -49,6 +49,7 @@ object OpenLanguageSpec extends ZIOSpecDefault:
           Language("fr") == French,
           Language.of("de") == German,
           Language.of("nl-BE") == Flemish,
+          Language.of("EN") == English,
         )
       },
       test("a region's base is its language") {
@@ -57,6 +58,22 @@ object OpenLanguageSpec extends ZIOSpecDefault:
           Language("fr-BE").base == French,
           Flemish.locale.getCountry == "BE",
         )
+      },
+      test("longer tags are canonicalized subtag by subtag") {
+        assertTrue(
+          Language("SR-latn-rs").tag == "sr-Latn-RS",
+          Language("de-CH-1996").tag == "de-CH-1996",
+          Language("en-US-u-CA-gregory").tag == "en-US-u-ca-gregory",
+          Language("de-x-Private").tag == "de-x-private",
+          Language.parse("toolong-US").isLeft,
+        )
+      },
+      test("a language serializes and still equals itself") {
+        assertTrue(German.isInstanceOf[java.io.Serializable])
+      },
+      test("a JsonCodec can still be summoned") {
+        val codec = summon[JsonCodec[Language]]
+        assertTrue(codec.decoder.decodeJson(codec.encoder.encodeJson(German).toString) == Right(German))
       },
       test("what is not a language tag is refused, and of() falls back to English") {
         assertTrue(

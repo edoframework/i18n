@@ -15,9 +15,12 @@ import zio.json.*
  * Equality and hash are by tag, so `Language("en") == English` and a `Map[Language, _]` built
  * from either finds the other.
  */
-final class Language private (val tag: String):
+final class Language private (val tag: String) extends Serializable:
 
-  /** The BCP 47 tag. The name predates regions: for `nl-BE` it is `"nl-BE"`, not `"nl"`. */
+  /**
+   * The BCP 47 tag. The name predates regions: for `nl-BE` it is `"nl-BE"`, not `"nl"`; compare
+   * `base.isoCode` to ask for the language alone.
+   */
   def isoCode: String = tag
 
   def isDefault: Boolean = this == Language.defaultLanguage
@@ -135,6 +138,9 @@ object Language:
   // working; any other language by its tag. Both forms are read.
   given JsonEncoder[Language] = JsonEncoder.string.contramap(_.toString)
   given JsonDecoder[Language] = JsonDecoder.string.mapOrFail(decode)
+
+  // The enum derived a JsonCodec; code that summons one keeps compiling.
+  given JsonCodec[Language] = JsonCodec(summon[JsonEncoder[Language]], summon[JsonDecoder[Language]])
 
   given JsonFieldEncoder[Language] = JsonFieldEncoder.string.contramap(_.toString)
   given JsonFieldDecoder[Language] = JsonFieldDecoder.string.mapOrFail(decode)

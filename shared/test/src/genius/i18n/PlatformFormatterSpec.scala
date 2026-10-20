@@ -72,6 +72,16 @@ object PlatformFormatterSpec extends ZIOSpecDefault:
     test("something that is not a tag formats as English") {
       assertTrue(number("not a tag") == "1,234.50", medium("") == "Oct 20, 2026")
     },
+    test("a valid tag the platform cannot format does not throw") {
+      assertTrue(number("zh-cmn-Hans").nonEmpty, medium("zh-cmn-Hans").nonEmpty)
+    },
+    test("a region reaches the formatter") {
+      val msg = Message.withNamedArgs(Language.Dutch -> "{$x :number}")("x" -> 1234.5)
+      assertTrue(
+        number("nl-BE") == "1.234,50",
+        msg.translate(Language("nl-BE")) == "1.234,50",
+      )
+    },
   )
 
 end PlatformFormatterSpec

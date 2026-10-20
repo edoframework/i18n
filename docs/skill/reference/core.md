@@ -44,7 +44,7 @@ A `match` on `Language` is not checked for exhaustiveness: `case English =>` sti
 works, but add `case _` for every other language. `ordinal` and `fromOrdinal` are
 gone.
 
-Codecs (given): `JsonEncoder`/`JsonDecoder[Language]` and
+Codecs (given): `JsonCodec`, `JsonEncoder` and `JsonDecoder[Language]`, and
 `JsonFieldEncoder`/`JsonFieldDecoder` (so `Language` works as a JSON **map key**,
 which is how `Message` stores its per-language templates). A built-in is written by
 its name (`"English"`), any other language by its tag (`"de"`); both forms are read.

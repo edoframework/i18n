@@ -61,6 +61,9 @@ cleanly across a wire (a built-in as `"English"`, any other language as its tag)
 
 Since 2.0.0 `Language` is a class, not an enum: `case English =>` still matches,
 but a `match` on a language needs a `case _`, and `ordinal`/`fromOrdinal` are gone.
+`isoCode` is the full tag, so it is `"nl-BE"` for Belgian Dutch: compare
+`base.isoCode` where only the language matters. `Language.of` reads tags, not the
+names `"English"`/`"Dutch"`/`"French"` (that is `valueOf`).
 
 ### ICU MessageFormat 2.0
 
