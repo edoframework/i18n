@@ -22,4 +22,3 @@ object PlatformLanguageNames:
       val names = new DisplayNames(js.Array(in), js.Dictionary[Any]("type" -> "language"))
       names.of(tag).toOption
     }.toOption.flatten.filter(n => n.nonEmpty && n != tag)
-

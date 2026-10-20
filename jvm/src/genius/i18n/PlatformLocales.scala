@@ -18,3 +18,4 @@ object PlatformLocales:
       val locale = Locale.forLanguageTag(tag)
       if locale.getLanguage.isEmpty then Locale.US else locale
 
+end PlatformLocales

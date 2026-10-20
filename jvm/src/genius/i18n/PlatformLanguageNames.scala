@@ -12,4 +12,3 @@ object PlatformLanguageNames:
     val locale = Locale.forLanguageTag(tag)
     val name   = locale.getDisplayName(Locale.forLanguageTag(in))
     Option(name).filter(n => n.nonEmpty && n != tag && n != locale.getLanguage)
-
