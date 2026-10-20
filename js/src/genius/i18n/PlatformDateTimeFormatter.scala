@@ -18,12 +18,7 @@ object PlatformDateTimeFormatter:
     options: Map[String, String],
     locale: String,
   ): String =
-    // Convert locale to browser format
-    val jsLocale = locale match
-      case "en" => "en-US"
-      case "nl" => "nl-NL"
-      case "fr" => "fr-FR"
-      case _    => "en-US"
+    val jsLocale = PlatformLocales.jsLocale(locale)
 
     value match
       case ld: LocalDate =>

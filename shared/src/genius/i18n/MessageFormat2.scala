@@ -533,8 +533,8 @@ object MessageFormat2:
 
           // Plural category matching (locale-specific)
           case "one" =>
-            locale match
-              case "fr" => count == 0 || count == 1 // French: one = 0 or 1
+            locale.takeWhile(_ != '-').toLowerCase match
+              case "fr" => count == 0 || count == 1 // French (any region): one = 0 or 1
               case _    => count == 1               // English/Dutch: one = 1
 
           case "other" => true // "other" matches everything

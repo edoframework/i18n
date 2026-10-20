@@ -51,9 +51,16 @@ greeting.translate(Language.English)  // Hello Alice, you have 150 points
 greeting.translate(Language.French)   // Bonjour Alice, vous avez 150 points
 ```
 
-`Language` is an enum (`English`, `Dutch`, `French`) with ISO codes;
-`Language.of("nl")` parses a code (falling back to English). Both `Language` and
-`Message` derive `zio-json` codecs, so messages serialize cleanly across a wire.
+`Language` is identified by its BCP 47 tag. `English`, `Dutch` and `French` are
+built in; any other language is `Language("de")` or `Language("nl-BE")`, and
+`Language.of(tag)` parses a tag, falling back to English only for invalid input. A
+message without a translation for a language falls back to its base language
+(`nl-BE` to `nl`), then to English; numbers and dates format in the language's
+locale. Both `Language` and `Message` have `zio-json` codecs, so messages serialize
+cleanly across a wire (a built-in as `"English"`, any other language as its tag).
+
+Since 2.0.0 `Language` is a class, not an enum: `case English =>` still matches,
+but a `match` on a language needs a `case _`, and `ordinal`/`fromOrdinal` are gone.
 
 ### ICU MessageFormat 2.0
 

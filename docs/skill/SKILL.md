@@ -6,7 +6,7 @@ description: How to use genius-i18n — Genius Fish's composable, type-safe inte
 # genius-i18n
 
 A composable, type-safe i18n library for Scala 3, cross-compiled for the **JVM and
-Scala.js**. It gives you a small set of value types — a `Language` enum and a
+Scala.js**. It gives you a small set of value types — a `Language` and a
 translatable `Message` — plus an ICU MessageFormat 2.0 engine and locale-aware
 number/date formatting that works the same on both platforms.
 
@@ -27,8 +27,10 @@ Unlike the sibling DSL libraries (genius-latex, genius-uml), this is **plain val
 types + functions**, not a context-function DSL — there are no markers or AST.
 Four pieces:
 
-- **`Language`** — an enum of supported locales (`English`, `Dutch`, `French`),
-  each with an ISO code. The unit of "which translation".
+- **`Language`** — a language by its BCP 47 tag: the built-ins `English`, `Dutch`,
+  `French`, or any other as `Language("de")`, `Language("nl-BE")`. The unit of
+  "which translation"; a missing translation falls back to the base language, then
+  English.
 - **`Message`** — a bundle of per-language templates plus arguments. You build one
   with translations for each language, then `.translate(language)` renders it. This
   is the core value you pass around instead of a bare `String`.
@@ -55,7 +57,7 @@ val greeting = Message.withNamedArgs(
 greeting.translate(Language.French)   // Bonjour Alice, vous avez 150 points
 ```
 
-Both `Language` and `Message` derive `zio-json` codecs, so messages serialize over
+Both `Language` and `Message` have `zio-json` codecs, so messages serialize over
 a wire and survive round-trips (templates + args are preserved, not just the
 rendered string).
 

@@ -16,12 +16,7 @@ object PlatformNumberFormatter:
     style: Option[String],
     locale: String,
   ): String =
-    // Convert locale to browser format
-    val jsLocale = locale match
-      case "en" => "en-US"
-      case "nl" => "nl-NL"
-      case "fr" => "fr-FR"
-      case _    => "en-US"
+    val jsLocale = PlatformLocales.jsLocale(locale)
 
     style match
       case Some("percent") =>

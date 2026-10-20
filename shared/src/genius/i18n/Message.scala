@@ -22,8 +22,11 @@ case class Message(
       case (k, v) => k -> (v: Any)
     MessageFormat2.format(template, formattedArgs, language.isoCode)
 
+  // Exact, then the base language (a Belgian Dutch reader gets the Dutch text when no nl-BE one
+  // was written), then English.
   private def template(language: Language): String = translationTemplates
     .get(language)
+    .orElse(translationTemplates.get(language.base))
     .orElse(translationTemplates.get(Language.defaultLanguage))
     .getOrElse("!!unknown message!!")
 

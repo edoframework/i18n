@@ -2,7 +2,6 @@ package genius.i18n
 
 import java.time.{LocalDate, LocalDateTime, LocalTime}
 import java.time.format.{DateTimeFormatter, FormatStyle}
-import java.util.Locale
 
 object PlatformDateTimeFormatter:
 
@@ -11,12 +10,7 @@ object PlatformDateTimeFormatter:
     options: Map[String, String],
     locale: String,
   ): String =
-    // Convert locale string to Java Locale
-    val javaLocale = locale match
-      case "en" => Locale.US
-      case "nl" => Locale.of("nl", "NL")
-      case "fr" => Locale.FRANCE
-      case _    => Locale.getDefault
+    val javaLocale = PlatformLocales.javaLocale(locale)
 
     value match
       case ld: LocalDate =>

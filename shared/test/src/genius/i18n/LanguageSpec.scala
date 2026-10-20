@@ -40,7 +40,6 @@ object LanguageSpec extends ZIOSpecDefault:
       test("returns default language for invalid ISO code") {
         assertTrue(
           Language.of("invalid") == Language.defaultLanguage,
-          Language.of("de") == Language.defaultLanguage,
           Language.of("") == Language.defaultLanguage,
         )
       },

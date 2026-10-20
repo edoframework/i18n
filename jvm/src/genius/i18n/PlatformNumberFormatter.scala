@@ -10,12 +10,7 @@ object PlatformNumberFormatter:
     style: Option[String],
     locale: String,
   ): String =
-    // Convert locale string to Java Locale
-    val javaLocale = locale match
-      case "en" => Locale.US
-      case "nl" => Locale.of("nl", "NL")
-      case "fr" => Locale.FRANCE
-      case _    => Locale.getDefault
+    val javaLocale = PlatformLocales.javaLocale(locale)
 
     style match
       case Some("percent") =>
