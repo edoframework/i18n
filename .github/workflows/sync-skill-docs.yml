@@ -27,6 +27,10 @@ on:
         required: false
         default: 'main'
 
+# The push to the marketplace uses its own token; this repository is only read.
+permissions:
+  contents: read
+
 jobs:
   sync:
     name: Vendor skill docs into the plugin
@@ -34,12 +38,12 @@ jobs:
 
     steps:
       - name: Checkout library (at the release tag)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
       - name: Checkout claude-marketplace (main, writable)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: genius-fish/claude-marketplace
           ref: main
