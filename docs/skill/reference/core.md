@@ -1,6 +1,6 @@
 # core — Language & Message
 
-Package `genius.i18n`. The two value types you work with directly.
+Package `com.edoframework.i18n`. The two value types you work with directly.
 
 ## Language
 
@@ -9,8 +9,8 @@ built-ins are `val`s in the companion; any other language is `Language(tag)`.
 (Until 2.0.0 it was a closed enum of the three built-ins.)
 
 ```scala
-import genius.i18n.Language
-import genius.i18n.Language.*
+import com.edoframework.i18n.Language
+import com.edoframework.i18n.Language.*
 
 English                    // the default; also Dutch, French
 Language("de")             // any valid tag

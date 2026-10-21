@@ -1,4 +1,4 @@
-package genius.i18n
+package com.edoframework.i18n
 
 import scala.collection.mutable
 import scala.util.Try

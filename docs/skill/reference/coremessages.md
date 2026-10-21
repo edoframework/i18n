@@ -1,12 +1,12 @@
 # coremessages — the pre-built message library
 
-Package `genius.i18n`. `CoreMessages` is a ready-made, tri-lingual (English, Dutch,
+Package `com.edoframework.i18n`. `CoreMessages` is a ready-made, tri-lingual (English, Dutch,
 French) library of common application messages, grouped into nested objects.
 Static members are `Message` values; parameterized ones are factory methods
 returning a `Message`.
 
 ```scala
-import genius.i18n.*
+import com.edoframework.i18n.*
 
 CoreMessages.Validation.stringMinLength(8).translate(Language.English)
 CoreMessages.Authentication.invalidCredentials.translate(Language.French)

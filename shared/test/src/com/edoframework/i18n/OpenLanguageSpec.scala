@@ -1,9 +1,9 @@
-package genius.i18n
+package com.edoframework.i18n
 
 import zio.json.*
 import zio.test.*
 
-import genius.i18n.Language.*
+import com.edoframework.i18n.Language.*
 
 /** Any BCP 47 language, beside the three built-ins (APP-2338). */
 object OpenLanguageSpec extends ZIOSpecDefault:

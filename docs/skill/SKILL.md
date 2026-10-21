@@ -1,22 +1,24 @@
 ---
 name: library-genius-i18n
-description: How to use genius-i18n — Genius Fish's composable, type-safe internationalization library for Scala 3 (JVM + Scala.js). Apply when writing or reviewing Scala that handles locales, translatable messages, ICU MessageFormat 2.0, or locale-aware number/date formatting with the genius.i18n.* API (Language, Message, MessageFormat2, CoreMessages, PlatformNumberFormatter/PlatformDateTimeFormatter). Covers the model, the message API, the formatter syntax, the pre-built message library, cross-platform notes, and the build.
+description: How to use Edo Framework i18n (edo-i18n, formerly genius-i18n) — Innovenso's composable, type-safe internationalization library for Scala 3 (JVM + Scala.js). Apply when writing or reviewing Scala that handles locales, translatable messages, ICU MessageFormat 2.0, or locale-aware number/date formatting with the com.edoframework.i18n.* API (genius.i18n.* before 3.0.0) (Language, Message, MessageFormat2, CoreMessages, PlatformNumberFormatter/PlatformDateTimeFormatter). Covers the model, the message API, the formatter syntax, the pre-built message library, cross-platform notes, and the build.
 ---
 
-# genius-i18n
+# Edo Framework i18n (formerly genius-i18n)
 
 A composable, type-safe i18n library for Scala 3, cross-compiled for the **JVM and
 Scala.js**. It gives you a small set of value types — a `Language` and a
 translatable `Message` — plus an ICU MessageFormat 2.0 engine and locale-aware
 number/date formatting that works the same on both platforms.
 
-The package is `genius.i18n` (note: **not** `fish.genius.i18n` — it was extracted
-verbatim from the platform). Artifacts: `fish.genius::genius-i18n` (JVM) and
-`fish.genius::genius-i18n_sjs1` (Scala.js). Source: <https://github.com/genius-fish/i18n>.
+The package is `com.edoframework.i18n`. Artifacts on Maven Central:
+`com.edoframework::edo-i18n` (JVM) and `com.edoframework::edo-i18n_sjs1` (Scala.js),
+from 3.0.0, compiled with Scala 3.9 (LTS), Apache 2.0. Source:
+<https://github.com/edoframework/i18n>. Up to 2.0.0 it was `fish.genius::genius-i18n`
+in package `genius.i18n` on repo.genius.fish; 3.0.0 has the same API.
 
 ## When to use this skill
 
-Read this whenever you write or review Scala that imports `genius.i18n.*` —
+Read this whenever you write or review Scala that imports `com.edoframework.i18n.*` (or `genius.i18n.*` before 3.0.0) —
 building translatable messages, parsing/selecting a locale, formatting numbers or
 dates per-locale, using the `CoreMessages` library, or working with the ICU
 MessageFormat 2.0 syntax. It also flags the cross-platform (JVM/JS) considerations.
@@ -46,7 +48,7 @@ function annotations as MessageFormat2 route through the cross-platform
 `java.time`; JS: the browser `Intl` API).
 
 ```scala
-import genius.i18n.*
+import com.edoframework.i18n.*
 
 val greeting = Message.withNamedArgs(
   Language.English -> "Hello {$name}, you have {$points} points",
@@ -75,7 +77,7 @@ rendered string).
 
 ## Top gotchas
 
-- The package is **`genius.i18n`**, not `fish.genius.i18n`.
+- The package is **`com.edoframework.i18n`** from 3.0.0 (`genius.i18n` before), never `fish.genius.i18n`.
 - Prefer **`Message.withNamedArgs(...)(...)`** and `{$name}` placeholders; the
   positional `with1Arg`…`with10Args` factories are deprecated.
 - Pass a `Message`, not a pre-rendered `String`, through your domain — render at the

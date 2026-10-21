@@ -1,4 +1,4 @@
-package genius.i18n
+package com.edoframework.i18n
 
 import java.util.Locale
 
@@ -116,7 +116,9 @@ object Language:
   def valueOf(name: String): Language =
     byName.getOrElse(
       name,
-      throw new IllegalArgumentException(s"enum genius.i18n.Language has no case with name: $name"),
+      throw new IllegalArgumentException(
+        s"enum com.edoframework.i18n.Language has no case with name: $name"
+      ),
     )
 
   def defaultLanguage: Language = English

@@ -1,28 +1,38 @@
-# genius-i18n
+# Edo Framework i18n
 
 A composable, type-safe internationalization library for Scala 3 — locales,
 translatable messages, ICU MessageFormat 2.0, and locale-aware number/date
 formatting. Cross-compiled for the **JVM and Scala.js**.
 
-Extracted from the Genius Fish platform as a standalone library; the package is
-`genius.i18n`.
+Part of the [Edo Framework](https://edoframework.com), the open-source Scala 3
+libraries from Innovenso. The package is `com.edoframework.i18n`.
 
 ## Modules
 
-| Artifact         | Platform | Purpose                                              |
-| ---------------- | -------- | ---------------------------------------------------- |
-| `genius-i18n`    | JVM      | The full library on `java.time` / `java.text`.       |
-| `genius-i18n_sjs1` | Scala.js | The same API, formatting via the browser `Intl` API. |
+Published on Maven Central under `com.edoframework`:
+
+| Artifact                | Platform | Purpose                                              |
+| ----------------------- | -------- | ---------------------------------------------------- |
+| `edo-i18n`              | JVM      | The full library on `java.time` / `java.text`.       |
+| `edo-i18n_sjs1`         | Scala.js | The same API, formatting via the browser `Intl` API. |
+
+```scala
+mvn"com.edoframework::edo-i18n:3.0.0"     // Mill, JVM
+mvn"com.edoframework::edo-i18n::3.0.0"    // Mill, Scala.js
+"com.edoframework" %%% "edo-i18n" % "3.0.0" // sbt
+```
 
 The `shared/` sources compile on both platforms; `jvm/` and `js/` hold only the
 platform-specific number/date formatters.
 
 ## Stack
 
-- Mill 1.1.5
-- Scala 3.8.3 · Scala.js 1.21.0
-- ZIO 2.1.26 (`zio-json` for codecs, `zio-test`)
-- scala-java-time (JS `java.time` support)
+- Mill 1.3.1
+- Scala 3.9.0 (LTS) · Scala.js 1.22.0
+- ZIO 2.1.27 (`zio-json` 1.1 for codecs, `zio-test`)
+- scala-java-time 2.8 (JS `java.time` support)
+
+Everything resolves from Maven Central; the build needs no credentials.
 
 ## Build
 
@@ -32,13 +42,42 @@ make test           # ./mill __.test.testForked    (JVM + JS; JS runs on Node)
 make fmt            # ./mill __.reformat
 make fix            # ./mill __.fix                 (scalafix)
 make validate       # fix + fmt + compile + test
-make publishLocal   # to ~/.ivy2/local
+make publishLocal   # to ~/.ivy2/local (a SNAPSHOT only)
 ```
+
+## Releasing
+
+The version is the git tag: an exact `v`-tag on a clean tree is the release,
+anything else a SNAPSHOT of the last tag.
+
+```sh
+make release-prepare TYPE=patch|minor|major   # validate, write RELEASE_x_y_z.md
+make release-finalize                          # commit the notes, tag locally,
+                                               # check Central, publish to it
+git push origin main && git push origin vX.Y.Z # only after the publish succeeded
+make publish-dry-run                           # the signed bundle, written to out/
+```
+
+Publishing reads the Central Portal user token and the release key from
+`~/.edo-release.env` or the environment (`MILL_SONATYPE_USERNAME`,
+`MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`, `MILL_PGP_PASSPHRASE`).
+Releases are signed by `Edo Framework Releases <releases@edoframework.com>`,
+fingerprint `5026 B299 6DDB 697E C463  0BCF 14A7 33E2 A507 702F`.
+
+## Migrating from genius-i18n
+
+3.0.0 is the API of `fish.genius::genius-i18n:2.0.0` under its new name:
+
+- the dependency is `com.edoframework::edo-i18n`;
+- the package is `com.edoframework.i18n`: replace `genius.i18n` in your imports;
+- it is compiled with Scala 3.9 (LTS), so your build needs Scala 3.9 or later;
+- it brings `zio-json` 1.1 instead of 0.9;
+- the licence is Apache 2.0.
 
 ## Quick start
 
 ```scala
-import genius.i18n.*
+import com.edoframework.i18n.*
 
 // A translatable message with named placeholders:
 val greeting = Message.withNamedArgs(
@@ -90,7 +129,7 @@ e.g. `CoreMessages.Validation.stringMinLength(8)`.
 ## Testing
 
 ```scala
-import genius.i18n.*
+import com.edoframework.i18n.*
 import zio.test.*
 
 assertTrue(
@@ -103,4 +142,6 @@ The suite runs on both platforms (`make test`); JS tests execute under Node.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache License 2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright
+Innovenso BV. Versions up to and including 2.0.0 were published as
+`fish.genius::genius-i18n` under the MIT License and remain available under it.

@@ -1,8 +1,8 @@
-package genius.i18n
+package com.edoframework.i18n
 
 import java.time.LocalDate
 
-import genius.i18n.Language.*
+import com.edoframework.i18n.Language.*
 
 object CoreMessages:
 
@@ -326,9 +326,8 @@ object CoreMessages:
       French -> "la date de début doit être antérieure ou égale à la date de fin",
     )
 
-    // `Map[String, List[Message]]` is the standalone form of what the platform's
-    // `genius.validation.ValidationErrors` alias expands to — inlined here so the
-    // i18n library carries no dependency on the validation package.
+    // Validation errors per field as a plain `Map[String, List[Message]]`, so the
+    // i18n library carries no dependency on any validation package.
     def formatErrors(errors: Map[String, List[Message]]): Message =
       if errors.isEmpty then
         invalid

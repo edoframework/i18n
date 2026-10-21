@@ -1,4 +1,4 @@
-package genius.i18n
+package com.edoframework.i18n
 
 import java.text.NumberFormat
 import java.util.Locale

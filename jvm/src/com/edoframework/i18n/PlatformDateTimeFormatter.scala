@@ -1,4 +1,4 @@
-package genius.i18n
+package com.edoframework.i18n
 
 import java.time.{LocalDate, LocalDateTime, LocalTime}
 import java.time.format.{DateTimeFormatter, FormatStyle}

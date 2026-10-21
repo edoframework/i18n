@@ -1,10 +1,10 @@
-package genius.i18n
+package com.edoframework.i18n
 
 import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 import zio.json.*
 
-import genius.i18n.Language.*
+import com.edoframework.i18n.Language.*
 
 type MessageArg = String | Int | Long | Double | Float | Boolean | LocalDate | LocalDateTime |
   LocalTime
