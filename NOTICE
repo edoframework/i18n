@@ -1,8 +1,11 @@
-Edo Framework i18n
+Taihei Framework i18n
 Copyright 2026 Innovenso BV
 
 This product is developed by Innovenso BV (https://innovenso.com) as part of
-the Edo Framework (https://edoframework.com).
+the Taihei Framework (https://taihei.dev).
 
 Versions up to and including 2.0.0 were published as fish.genius::genius-i18n
 under the MIT License, and remain available under it.
+
+Version 3.0.0 was published as com.edoframework::edo-i18n, as part of the
+Edo Framework, under the Apache License 2.0.

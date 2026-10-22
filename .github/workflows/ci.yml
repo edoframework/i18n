@@ -1,4 +1,4 @@
-name: Edo Framework i18n CI
+name: Taihei Framework i18n CI
 
 on:
   push:

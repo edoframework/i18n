@@ -1,6 +1,6 @@
 # formatting — cross-platform formatters & build
 
-Package `com.edoframework.i18n`. Locale-aware number/date formatting is abstracted behind two
+Package `dev.taihei.i18n`. Locale-aware number/date formatting is abstracted behind two
 objects with identical signatures on both platforms, so `shared/` code (and the
 `:number` / `:datetime` MessageFormat functions) formats the same way on the JVM
 and in the browser.

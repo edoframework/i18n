@@ -1,9 +1,9 @@
-package com.edoframework.i18n
+package dev.taihei.i18n
 
 import zio.json.*
 import zio.test.*
 
-import com.edoframework.i18n.Language.*
+import dev.taihei.i18n.Language.*
 
 /** Any BCP 47 language, beside the three built-ins (APP-2338). */
 object OpenLanguageSpec extends ZIOSpecDefault:

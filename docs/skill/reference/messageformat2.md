@@ -1,6 +1,6 @@
 # messageformat2 — ICU MessageFormat 2.0
 
-Package `com.edoframework.i18n`. A standalone implementation of the ICU MessageFormat 2.0
+Package `dev.taihei.i18n`. A standalone implementation of the ICU MessageFormat 2.0
 template language — variable substitution, formatting functions, and locale-aware
 plural/select matching.
 

@@ -1,4 +1,4 @@
-package com.edoframework.i18n
+package dev.taihei.i18n
 
 import java.util.Locale
 
@@ -117,7 +117,7 @@ object Language:
     byName.getOrElse(
       name,
       throw new IllegalArgumentException(
-        s"enum com.edoframework.i18n.Language has no case with name: $name"
+        s"enum dev.taihei.i18n.Language has no case with name: $name"
       ),
     )
 

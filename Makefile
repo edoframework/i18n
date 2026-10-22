@@ -2,7 +2,7 @@ SHELL = /bin/bash
 
 # Maven Central coordinates of one published artifact, used to see whether a version is already
 # released. Central is immutable: a version that is there cannot be published again.
-CENTRAL_PATH = com/edoframework/edo-i18n_3
+CENTRAL_PATH = dev/taihei/taihei-i18n_3
 
 # The release credentials (MILL_SONATYPE_USERNAME / MILL_SONATYPE_PASSWORD for the Central Portal
 # user token, MILL_PGP_SECRET_BASE64 / MILL_PGP_PASSPHRASE for the release key). Read from this
@@ -54,7 +54,7 @@ deps:
 	./mill mill.scalalib.Dependency/showUpdates
 
 # ---------------------------------------------------------------------------
-# Publishing to Maven Central (namespace com.edoframework)
+# Publishing to Maven Central (namespace dev.taihei)
 # ---------------------------------------------------------------------------
 
 # A release number in ~/.ivy2/local shadows the published artifact for every build on the machine

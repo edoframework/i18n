@@ -1,10 +1,10 @@
-package com.edoframework.i18n
+package dev.taihei.i18n
 
 import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 import zio.json.*
 
-import com.edoframework.i18n.Language.*
+import dev.taihei.i18n.Language.*
 
 type MessageArg = String | Int | Long | Double | Float | Boolean | LocalDate | LocalDateTime |
   LocalTime

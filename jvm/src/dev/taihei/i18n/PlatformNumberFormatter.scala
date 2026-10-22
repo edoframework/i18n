@@ -1,4 +1,4 @@
-package com.edoframework.i18n
+package dev.taihei.i18n
 
 import java.text.NumberFormat
 import java.util.Locale

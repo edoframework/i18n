@@ -41,9 +41,9 @@ object release extends Module {
     if (exactTag && clean) version else s"$version-SNAPSHOT"
   }
 
-  // The first release under com.edoframework. Older tags are genius-i18n, under other coordinates,
-  // so there is nothing on Central to compare them with.
-  val firstRelease = "3.0.0"
+  // The first release under dev.taihei. Older tags are genius-i18n and edo-i18n, under other
+  // coordinates, so there is nothing on Central to compare them with.
+  val firstRelease = "4.0.0"
 
   // The release MiMa compares with: the newest v-tag reachable from HEAD, none before
   // firstRelease. MIMA_BASELINE overrides it: `none` for a major, which may break (release-prepare
@@ -69,7 +69,7 @@ object release extends Module {
 // Binary compatibility: MiMa compares the artifact with the baseline release on Central and
 // fails on a break (`make mima`, part of validate). No baseline, nothing to compare.
 // ---------------------------------------------------------------------------
-trait EdoMima extends Mima with PublishModule {
+trait TaiheiMima extends Mima with PublishModule {
   def mimaPreviousVersions = Task(release.mimaBaseline().toSeq)
   // The plugin's default fails without a version; no baseline here means nothing to compare.
   def mimaPreviousArtifacts = Task {
@@ -81,17 +81,17 @@ trait EdoMima extends Mima with PublishModule {
 // Shared publishing settings for JVM and JS modules: what Maven Central
 // validates (name, description, url, licence, developer, scm, sources, docs).
 // ---------------------------------------------------------------------------
-trait EdoPublishSettings extends PublishModule {
+trait TaiheiPublishSettings extends PublishModule {
   def publishVersion = release.gitVersion()
 
   def pomSettings = PomSettings(
     description = "Composable, type-safe i18n for Scala 3 — locales, messages, ICU-style formatting; JVM & JS",
-    organization = "com.edoframework",
-    url = "https://github.com/edoframework/i18n",
+    organization = "dev.taihei",
+    url = "https://github.com/taiheiframework/i18n",
     licenses = Seq(License.`Apache-2.0`),
-    versionControl = VersionControl.github("edoframework", "i18n"),
+    versionControl = VersionControl.github("taiheiframework", "i18n"),
     developers = Seq(
-      Developer("innovenso", "Innovenso BV", "https://edoframework.com", Some("Innovenso BV"), Some("https://innovenso.com")),
+      Developer("innovenso", "Innovenso BV", "https://taihei.dev", Some("Innovenso BV"), Some("https://innovenso.com")),
     ),
   )
 }
@@ -99,7 +99,7 @@ trait EdoPublishSettings extends PublishModule {
 // ---------------------------------------------------------------------------
 // Base trait for JVM modules
 // ---------------------------------------------------------------------------
-trait EdoModule extends ScalaModule with ScalafmtModule with ScalafixModule with EdoPublishSettings with EdoMima {
+trait TaiheiModule extends ScalaModule with ScalafmtModule with ScalafixModule with TaiheiPublishSettings with TaiheiMima {
   def scalaVersion = V.scala
 
   def scalacOptions = Seq(
@@ -110,7 +110,7 @@ trait EdoModule extends ScalaModule with ScalafmtModule with ScalafixModule with
     "-Xmax-inlines:128",
   )
 
-  trait EdoTests extends ScalaTests with ScalafmtModule with ScalafixModule {
+  trait TaiheiTests extends ScalaTests with ScalafmtModule with ScalafixModule {
     def testFramework = "zio.test.sbt.ZTestFramework"
 
     def forkArgs = Seq(
@@ -131,7 +131,7 @@ trait EdoModule extends ScalaModule with ScalafmtModule with ScalafixModule with
 // ---------------------------------------------------------------------------
 // Base trait for Scala.js modules
 // ---------------------------------------------------------------------------
-trait EdoJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModule with EdoPublishSettings with EdoMima {
+trait TaiheiJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModule with TaiheiPublishSettings with TaiheiMima {
   def scalaVersion   = V.scala
   def scalaJSVersion = V.scalaJS
 
@@ -149,7 +149,7 @@ trait EdoJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModule 
     mvn"io.github.cquiroz::scala-java-time-tzdb::${V.scalaJavaTime}",
   )
 
-  trait EdoJSTests extends ScalaJSTests with ScalafmtModule with ScalafixModule {
+  trait TaiheiJSTests extends ScalaJSTests with ScalafmtModule with ScalafixModule {
     def testFramework = "zio.test.sbt.ZTestFramework"
 
     def mvnDeps = Seq(
@@ -170,8 +170,8 @@ val wsRoot = os.Path(sys.env("MILL_WORKSPACE_ROOT"))
 //   platform-specific number/date formatters.
 // ---------------------------------------------------------------------------
 object i18n extends Module {
-  object jvm extends EdoModule {
-    def artifactName = "edo-i18n"
+  object jvm extends TaiheiModule {
+    def artifactName = "taihei-i18n"
 
     def sources = Task.Sources(
       wsRoot / "shared" / "src",
@@ -182,15 +182,15 @@ object i18n extends Module {
       mvn"dev.zio::zio-json:${V.zioJson}",
     )
 
-    object test extends EdoTests {
+    object test extends TaiheiTests {
       def sources = Task.Sources(
         wsRoot / "shared" / "test" / "src",
       )
     }
   }
 
-  object js extends EdoJSModule {
-    def artifactName = "edo-i18n"
+  object js extends TaiheiJSModule {
+    def artifactName = "taihei-i18n"
 
     def sources = Task.Sources(
       wsRoot / "shared" / "src",
@@ -201,7 +201,7 @@ object i18n extends Module {
       mvn"dev.zio::zio-json::${V.zioJson}",
     ) ++ jsDeps
 
-    object test extends EdoJSTests {
+    object test extends TaiheiJSTests {
       def sources = Task.Sources(
         wsRoot / "shared" / "test" / "src",
       )

@@ -1,25 +1,25 @@
-# Edo Framework i18n
+# Taihei Framework i18n
 
 A composable, type-safe internationalization library for Scala 3 — locales,
 translatable messages, ICU MessageFormat 2.0, and locale-aware number/date
 formatting. Cross-compiled for the **JVM and Scala.js**.
 
-Part of the [Edo Framework](https://edoframework.com), the open-source Scala 3
-libraries from Innovenso. The package is `com.edoframework.i18n`.
+Part of the [Taihei Framework](https://taihei.dev), the open-source Scala 3
+libraries from Innovenso. The package is `dev.taihei.i18n`.
 
 ## Modules
 
-Published on Maven Central under `com.edoframework`:
+Published on Maven Central under `dev.taihei`:
 
 | Artifact                | Platform | Purpose                                              |
 | ----------------------- | -------- | ---------------------------------------------------- |
-| `edo-i18n`              | JVM      | The full library on `java.time` / `java.text`.       |
-| `edo-i18n_sjs1`         | Scala.js | The same API, formatting via the browser `Intl` API. |
+| `taihei-i18n`           | JVM      | The full library on `java.time` / `java.text`.       |
+| `taihei-i18n_sjs1`      | Scala.js | The same API, formatting via the browser `Intl` API. |
 
 ```scala
-mvn"com.edoframework::edo-i18n:3.0.0"     // Mill, JVM
-mvn"com.edoframework::edo-i18n::3.0.0"    // Mill, Scala.js
-"com.edoframework" %%% "edo-i18n" % "3.0.0" // sbt
+mvn"dev.taihei::taihei-i18n:4.0.0"     // Mill, JVM
+mvn"dev.taihei::taihei-i18n::4.0.0"    // Mill, Scala.js
+"dev.taihei" %%% "taihei-i18n" % "4.0.0" // sbt
 ```
 
 The `shared/` sources compile on both platforms; `jvm/` and `js/` hold only the
@@ -62,23 +62,24 @@ make publish-dry-run                           # the signed bundle, written to o
 Publishing reads the Central Portal user token and the release key from
 `~/.edo-release.env` or the environment (`MILL_SONATYPE_USERNAME`,
 `MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`, `MILL_PGP_PASSPHRASE`).
-Releases are signed by `Edo Framework Releases <releases@edoframework.com>`,
+Releases are signed by the Taihei Framework release key,
 fingerprint `5026 B299 6DDB 697E C463  0BCF 14A7 33E2 A507 702F`.
 
-## Migrating from genius-i18n
+## Coming from edo-i18n 3.0.0 or genius-i18n
 
-3.0.0 is the API of `fish.genius::genius-i18n:2.0.0` under its new name:
+4.0.0 has the API of `com.edoframework::edo-i18n:3.0.0` under the library's new name:
 
-- the dependency is `com.edoframework::edo-i18n`;
-- the package is `com.edoframework.i18n`: replace `genius.i18n` in your imports;
-- it is compiled with Scala 3.9 (LTS), so your build needs Scala 3.9 or later;
-- it brings `zio-json` 1.1 instead of 0.9;
-- the licence is Apache 2.0.
+- the dependency is `dev.taihei::taihei-i18n`;
+- the package is `dev.taihei.i18n`: replace `com.edoframework.i18n` in your imports.
+
+Coming from `fish.genius::genius-i18n:2.0.0`, replace `genius.i18n` instead. 3.0.0 also
+moved to Scala 3.9 (LTS), so your build needs Scala 3.9 or later, to `zio-json` 1.1
+instead of 0.9, and to the Apache License 2.0.
 
 ## Quick start
 
 ```scala
-import com.edoframework.i18n.*
+import dev.taihei.i18n.*
 
 // A translatable message with named placeholders:
 val greeting = Message.withNamedArgs(
@@ -130,7 +131,7 @@ e.g. `CoreMessages.Validation.stringMinLength(8)`.
 ## Testing
 
 ```scala
-import com.edoframework.i18n.*
+import dev.taihei.i18n.*
 import zio.test.*
 
 assertTrue(

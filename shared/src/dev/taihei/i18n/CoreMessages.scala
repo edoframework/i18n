@@ -1,8 +1,8 @@
-package com.edoframework.i18n
+package dev.taihei.i18n
 
 import java.time.LocalDate
 
-import com.edoframework.i18n.Language.*
+import dev.taihei.i18n.Language.*
 
 object CoreMessages:
 

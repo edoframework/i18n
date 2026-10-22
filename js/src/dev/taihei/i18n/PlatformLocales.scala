@@ -1,4 +1,4 @@
-package com.edoframework.i18n
+package dev.taihei.i18n
 
 import scala.scalajs.js
 import scala.util.Try

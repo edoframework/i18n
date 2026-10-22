@@ -1,9 +1,9 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repository: **Edo Framework i18n** (`com.edoframework::edo-i18n`),
+Guidance for Claude Code in this repository: **Taihei Framework i18n** (`dev.taihei::taihei-i18n`),
 languages, translatable messages, ICU MessageFormat 2.0 and locale-aware formatting for Scala 3 on
-the JVM and Scala.js. Part of the Edo Framework; the family's rules come from the parent folder's
-`CLAUDE.md` when this repo is checked out under `~/Projects/Edo`.
+the JVM and Scala.js. Part of the Taihei Framework; the family's rules come from the parent folder's
+`CLAUDE.md` when this repo is checked out under `~/Projects/Taihei`.
 
 ## Commands
 
@@ -18,7 +18,7 @@ make release-finalize  # publishes to Maven Central: only with the maintainer's 
 
 ## Layout
 
-- `shared/src/com/edoframework/i18n/`: `Language`, `Message`, `MessageFormat2`, `CoreMessages`.
+- `shared/src/dev/taihei/i18n/`: `Language`, `Message`, `MessageFormat2`, `CoreMessages`.
 - `jvm/src/…` and `js/src/…`: the platform formatters behind `PlatformNumberFormatter`,
   `PlatformDateTimeFormatter`, `PlatformLocales`, `PlatformLanguageNames`.
 - `shared/test/src/…`: zio-test specs, run on both platforms.
@@ -31,5 +31,5 @@ make release-finalize  # publishes to Maven Central: only with the maintainer's 
   in the README.
 - Every dependency comes from Maven Central under an Apache-compatible licence; the build needs no
   credentials.
-- Work is tracked in Jira project EDO; commits are `EDO-12: subject` with a body that explains the
+- Work is tracked in Jira project TAIHEI; commits are `TAIHEI-12: subject` with a body that explains the
   change to a reader without access to the ticket.
