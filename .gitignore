@@ -35,8 +35,10 @@ hs_err_pid*
 # Compiled bits
 *.class
 
-# Genius Fish release flow state (written by /gf-standards:release-prepare)
+# Release state, written by make release-prepare and removed by release-finalize or release-abort
 .release-state.json
+.release-state.*
+.release-notes.*
 
-# Generated code-review reports (gf-standards:review)
+# Review reports, kept locally
 reviews/

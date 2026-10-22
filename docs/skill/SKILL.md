@@ -1,6 +1,6 @@
 ---
-name: library-genius-i18n
-description: How to use Taihei Framework i18n (taihei-i18n, formerly taihei-i18n and genius-i18n) — Innovenso's composable, type-safe internationalization library for Scala 3 (JVM + Scala.js). Apply when writing or reviewing Scala that handles locales, translatable messages, ICU MessageFormat 2.0, or locale-aware number/date formatting with the dev.taihei.i18n.* API (genius.i18n.* before 3.0.0) (Language, Message, MessageFormat2, CoreMessages, PlatformNumberFormatter/PlatformDateTimeFormatter). Covers the model, the message API, the formatter syntax, the pre-built message library, cross-platform notes, and the build.
+name: taihei-i18n
+description: How to use Taihei Framework i18n (taihei-i18n, formerly edo-i18n and genius-i18n) — Innovenso's composable, type-safe internationalization library for Scala 3 (JVM + Scala.js). Apply when writing or reviewing Scala that handles locales, translatable messages, ICU MessageFormat 2.0, or locale-aware number/date formatting with the dev.taihei.i18n.* API (genius.i18n.* before 3.0.0) (Language, Message, MessageFormat2, CoreMessages, PlatformNumberFormatter/PlatformDateTimeFormatter). Covers the model, the message API, the formatter syntax, the pre-built message library, cross-platform notes, and the build.
 ---
 
 # Taihei Framework i18n (formerly genius-i18n)
@@ -11,11 +11,11 @@ translatable `Message` — plus an ICU MessageFormat 2.0 engine and locale-aware
 number/date formatting that works the same on both platforms.
 
 The package is `dev.taihei.i18n`. Artifacts on Maven Central:
-`dev.taihei::taihei-i18n` (JVM) and `dev.taihei::taihei-i18n_sjs1` (Scala.js),
+`dev.taihei::taihei-i18n`, published as `taihei-i18n_3` (JVM) and `taihei-i18n_sjs1_3` (Scala.js),
 from 4.0.0, compiled with Scala 3.9 (LTS), Apache 2.0. Source:
 <https://github.com/taiheiframework/i18n>. 3.0.0 was `com.edoframework::edo-i18n` in
 package `com.edoframework.i18n`; up to 2.0.0 it was `fish.genius::genius-i18n` in package
-`genius.i18n` on repo.genius.fish. All three have the same API.
+`genius.i18n`. All three have the same API.
 
 ## When to use this skill
 

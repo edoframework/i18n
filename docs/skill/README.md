@@ -1,42 +1,22 @@
-# Taihei Framework i18n skill docs (source of truth)
+# Taihei Framework i18n skill docs
 
-This directory is the **canonical source** for the `library-genius-i18n` skill
-shipped by the `gf-standards` Claude Code plugin. The files here are authored and
-reviewed next to the library code; a sync step vendors a copy into the
-marketplace so the published plugin is self-contained.
+This directory is the source of the `taihei-i18n` Claude Code skill: how to use the library,
+written next to the code it describes.
 
 ```
 docs/skill/
-  SKILL.md            # the skill itself (frontmatter + lean overview + index)
-  reference/*.md      # detailed per-area reference, loaded on demand
+  SKILL.md            # the skill itself (frontmatter, a lean overview and an index)
+  reference/*.md      # detailed reference per area, loaded on demand
 ```
-
-This is one instance of a reusable Genius Fish pattern; the canonical playbook is
-`plugins/gf-standards/docs/playbooks/library-skill-docs.md` in
-`genius-fish/claude-marketplace`.
 
 ## Editing
 
-Update these in the same PR that changes the public API they describe. Keep
-`SKILL.md` lean (overview + index); put detail in `reference/*.md` so the skill
-loads cheaply and Claude reads depth only when needed (progressive disclosure).
+Update these in the same pull request that changes the public API they describe. Keep `SKILL.md`
+lean (overview and index) and put the detail in `reference/*.md`, so the skill loads cheaply and
+Claude reads the depth only when it needs it.
 
-## Syncing into the plugin
+## Using the skill
 
-`SKILL.md` and `reference/` are vendored into the marketplace plugin at
-`plugins/gf-standards/skills/library-genius-i18n/` — **not** via a git submodule.
-
-### Automatic — on release
-
-`.github/workflows/sync-skill-docs.yml` runs on every release tag (`v*`),
-regenerates the skill from this directory, bumps the gf-standards plugin, and
-pushes to `genius-fish/claude-marketplace` `main`. Needs a `MARKETPLACE_SYNC_TOKEN`
-repo secret (a token with **Contents: write** on the marketplace repo).
-
-### Manual — anytime
-
-```sh
-./scripts/sync-skill-docs.sh
-GF_MARKETPLACE=/path/to/claude-marketplace ./scripts/sync-skill-docs.sh
-./scripts/sync-skill-docs.sh --check     # verify in sync (exit 1 if drifted)
-```
+Copy `SKILL.md` and `reference/` into a `skills/taihei-i18n/` directory of your own plugin, or into
+`.claude/skills/taihei-i18n/` of a project that uses the library. Nothing in this repository
+publishes the skill anywhere.
