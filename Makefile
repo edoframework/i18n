@@ -50,7 +50,7 @@ build: prepare test
 test:
 	./mill __.test.testForked
 
-# Binary compatibility with the baseline release (release.mimaBaseline: the newest v-tag, or
+# Binary compatibility with the baseline release (release.mimaBaseline: the newest v-tag before HEAD, or
 # MIMA_BASELINE). A break fails here; a major sets MIMA_BASELINE=none.
 mima:
 	@echo "[mima] baseline: $$(./mill show release.mimaBaseline | tr -d '\n "' | sed 's/^null$$/none/')"

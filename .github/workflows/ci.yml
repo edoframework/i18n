@@ -63,6 +63,6 @@ jobs:
       - name: Run all tests (JVM + JS)
         run: ./mill __.test.testForked
 
-      # Against the newest v-tag (fetch-depth 0 brings the tags), as make validate does.
+      # Against the newest v-tag before HEAD (fetch-depth 0 brings the tags), as make validate does.
       - name: Check binary compatibility (MiMa)
         run: make mima
