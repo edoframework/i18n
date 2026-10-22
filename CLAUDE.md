@@ -8,7 +8,8 @@ the JVM and Scala.js. Part of the Edo Framework; the family's rules come from th
 ## Commands
 
 ```bash
-make validate          # scalafix, scalafmt, compile and test, JVM and Scala.js
+make validate          # scalafix, scalafmt, compile, test and MiMa, JVM and Scala.js
+make mima              # binary compatibility with the newest release tag only
 make test              # ./mill __.test.testForked (JS tests run under Node)
 make publish-dry-run   # the bundle Maven Central would receive, written to out/
 make release-prepare TYPE=patch|minor|major   # then review RELEASE_x_y_z.md

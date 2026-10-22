@@ -1,5 +1,6 @@
 //| mvnDeps:
 //| - com.goyeau::mill-scalafix::0.6.2
+//| - com.github.lolgab::mill-mima::0.2.2
 
 package build
 
@@ -9,6 +10,7 @@ import mill.scalalib.publish.*
 import mill.scalalib.scalafmt.*
 import mill.scalajslib.*
 
+import com.github.lolgab.mill.mima.Mima
 import com.goyeau.mill.scalafix.ScalafixModule
 
 // ---------------------------------------------------------------------------
@@ -38,6 +40,41 @@ object release extends Module {
     val clean    = git("status", "--porcelain").out.text().linesIterator.forall(_.startsWith("??"))
     if (exactTag && clean) version else s"$version-SNAPSHOT"
   }
+
+  // The first release under com.edoframework. Older tags are genius-i18n, under other coordinates,
+  // so there is nothing on Central to compare them with.
+  val firstRelease = "3.0.0"
+
+  // The release MiMa compares with: the newest v-tag reachable from HEAD, none before
+  // firstRelease. MIMA_BASELINE overrides it: `none` for a major, which may break (release-prepare
+  // TYPE=major sets it), or a version.
+  def mimaBaseline = Task.Input {
+    val root = os.Path(sys.env("MILL_WORKSPACE_ROOT"))
+    def numbers(v: String) = v.split('.').toSeq.map(_.toIntOption.getOrElse(0))
+    Task.env.get("MIMA_BASELINE").map(_.trim).filter(_.nonEmpty) match {
+      case Some("none") => None
+      case Some(v)      => Some(v)
+      case None         =>
+        val tag = os
+          .proc("git", "describe", "--tags", "--abbrev=0", "--match", "v[0-9]*")
+          .call(cwd = root, check = false)
+        Option
+          .when(tag.exitCode == 0)(tag.out.trim().stripPrefix("v"))
+          .filter(v => Ordering.Implicits.seqOrdering[Seq, Int].gteq(numbers(v), numbers(firstRelease)))
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Binary compatibility: MiMa compares the artifact with the baseline release on Central and
+// fails on a break (`make mima`, part of validate). No baseline, nothing to compare.
+// ---------------------------------------------------------------------------
+trait EdoMima extends Mima with PublishModule {
+  def mimaPreviousVersions = Task(release.mimaBaseline().toSeq)
+  // The plugin's default fails without a version; no baseline here means nothing to compare.
+  def mimaPreviousArtifacts = Task {
+    mimaPreviousVersions().map(v => mvn"${pomSettings().organization}:${artifactId()}:$v")
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +99,7 @@ trait EdoPublishSettings extends PublishModule {
 // ---------------------------------------------------------------------------
 // Base trait for JVM modules
 // ---------------------------------------------------------------------------
-trait EdoModule extends ScalaModule with ScalafmtModule with ScalafixModule with EdoPublishSettings {
+trait EdoModule extends ScalaModule with ScalafmtModule with ScalafixModule with EdoPublishSettings with EdoMima {
   def scalaVersion = V.scala
 
   def scalacOptions = Seq(
@@ -94,7 +131,7 @@ trait EdoModule extends ScalaModule with ScalafmtModule with ScalafixModule with
 // ---------------------------------------------------------------------------
 // Base trait for Scala.js modules
 // ---------------------------------------------------------------------------
-trait EdoJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModule with EdoPublishSettings {
+trait EdoJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModule with EdoPublishSettings with EdoMima {
   def scalaVersion   = V.scala
   def scalaJSVersion = V.scalaJS
 

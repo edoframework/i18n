@@ -13,7 +13,7 @@ RELEASE_ENV ?= $(HOME)/.edo-release.env
 RELEASE_STATE   = /tmp/release-state-$(notdir $(CURDIR)).json
 RELEASE_CONTEXT = /tmp/release-context-$(notdir $(CURDIR)).md
 
-.PHONY: clean fix fmt compile prepare build test validate deps publishLocal publish \
+.PHONY: clean fix fmt compile prepare build test mima validate deps publishLocal publish \
         publish-dry-run release-preflight release-prepare release-finalize release-abort \
         release-status
 
@@ -42,7 +42,13 @@ build: prepare test
 test:
 	./mill __.test.testForked
 
-validate: fix fmt compile test
+# Binary compatibility with the baseline release (release.mimaBaseline: the newest v-tag, or
+# MIMA_BASELINE). A break fails here; a major sets MIMA_BASELINE=none.
+mima:
+	@echo "[mima] baseline: $$(./mill show release.mimaBaseline | tr -d '\n "' | sed 's/^null$$/none/')"
+	./mill __.mimaReportBinaryIssues
+
+validate: fix fmt compile test mima
 
 deps:
 	./mill mill.scalalib.Dependency/showUpdates
@@ -129,6 +135,7 @@ release-prepare:
 	echo "[INFO] Cleaning build cache..."; \
 	./mill clean; \
 	echo "[INFO] Running validation..."; \
+	if [ "$(TYPE)" = "major" ]; then export MIMA_BASELINE=none; fi; \
 	$(MAKE) validate; \
 	if [ -n "$$(git status --porcelain | grep -v '^??')" ]; then \
 		echo "[ERROR] validate changed files: review and commit the reformatting first, then run release-prepare again."; \

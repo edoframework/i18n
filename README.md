@@ -41,7 +41,8 @@ make compile        # ./mill __.compile           (JVM + JS)
 make test           # ./mill __.test.testForked    (JVM + JS; JS runs on Node)
 make fmt            # ./mill __.reformat
 make fix            # ./mill __.fix                 (scalafix)
-make validate       # fix + fmt + compile + test
+make validate       # fix + fmt + compile + test + mima
+make mima           # binary compatibility with the newest release tag
 make publishLocal   # to ~/.ivy2/local (a SNAPSHOT only)
 ```
 
