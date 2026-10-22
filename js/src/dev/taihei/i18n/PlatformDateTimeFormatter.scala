@@ -23,7 +23,7 @@ object PlatformDateTimeFormatter:
     value match
       case ld: LocalDate =>
         val jsDate    = toJsDate(ld)
-        val dateStyle = options.get("dateStyle").getOrElse("medium")
+        val dateStyle = styleOf(options, "dateStyle")
         val jsOptions = js.Dictionary[Any](
           "dateStyle" -> dateStyle
         )
@@ -31,8 +31,8 @@ object PlatformDateTimeFormatter:
 
       case ldt: LocalDateTime =>
         val jsDate    = toJsDate(ldt)
-        val dateStyle = options.get("dateStyle").getOrElse("medium")
-        val timeStyle = options.get("timeStyle").getOrElse("medium")
+        val dateStyle = styleOf(options, "dateStyle")
+        val timeStyle = styleOf(options, "timeStyle")
         val jsOptions = js.Dictionary[Any](
           "dateStyle" -> dateStyle,
           "timeStyle" -> timeStyle,
@@ -42,7 +42,7 @@ object PlatformDateTimeFormatter:
       case lt: LocalTime =>
         // For LocalTime, use today's date with the given time
         val jsDate    = toJsDate(lt)
-        val timeStyle = options.get("timeStyle").getOrElse("medium")
+        val timeStyle = styleOf(options, "timeStyle")
         val jsOptions = js.Dictionary[Any](
           "timeStyle" -> timeStyle
         )
@@ -54,6 +54,13 @@ object PlatformDateTimeFormatter:
     end match
 
   end formatDateTime
+
+  // Intl throws a RangeError on a style it does not know. Like the JVM side, take the style in
+  // any case and fall back to medium for anything else.
+  private val styles = Set("short", "medium", "long", "full")
+
+  private def styleOf(options: Map[String, String], key: String): String =
+    options.get(key).map(_.toLowerCase).filter(styles).getOrElse("medium")
 
   private def toJsDate(ld: LocalDate): js.Date =
     new js.Date(ld.getYear, ld.getMonthValue - 1, ld.getDayOfMonth)

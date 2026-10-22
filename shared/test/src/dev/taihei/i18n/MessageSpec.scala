@@ -275,6 +275,15 @@ object MessageSpec extends ZIOSpecDefault:
         assertTrue(msg.translate(Language.English) == "Alice has 100 points")
       },
     ),
+    suite("Message from a throwable")(
+      test("carries the throwable's message") {
+        assertTrue(Message.of(new IllegalStateException("broken")).translate(Language.English) == "broken")
+      },
+      test("a throwable without a message gives its class name instead of failing") {
+        val m = Message.of(new RuntimeException())
+        assertTrue(m.translate(Language.English) == "java.lang.RuntimeException", m.nonEmpty)
+      },
+    ),
     suite("Message JSON codec")(
       test("Message can be encoded to JSON") {
         val msg  = Message.withNamedArgs(Language.English -> "Hello {$name}")("name" -> "World")

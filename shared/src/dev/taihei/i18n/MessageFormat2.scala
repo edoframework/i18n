@@ -57,6 +57,14 @@ object MessageFormat2:
       while hasMore && template(pos).isWhitespace do
         pos += 1
 
+    // The first position from `from` that String.trim would keep (a char above U+0020). The
+    // keyword checks look at the template in place instead of copying the rest of it per check,
+    // which made parsing quadratic in the number of declarations and cases.
+    private def firstNonBlank(from: Int): Int =
+      var i = from
+      while i < template.length && template(i) <= ' ' do i += 1
+      i
+
     private def isPatternTerminator(c: Char): Boolean =
       c == '{' || c == '\n' || c == '|'
 
@@ -179,7 +187,7 @@ object MessageFormat2:
       skipWhitespace()
       if !hasMore then return None
 
-      if hasMore && template.substring(pos).startsWith(KeywordInput) then
+      if hasMore && template.startsWith(KeywordInput, pos) then
         pos += KeywordInput.length
         skipWhitespace()
 
@@ -215,7 +223,7 @@ object MessageFormat2:
           Variable(name)
 
         Some(InputDeclaration(name, expr))
-      else if hasMore && template.substring(pos).startsWith(KeywordLet) then
+      else if hasMore && template.startsWith(KeywordLet, pos) then
         pos += KeywordLet.length
         skipWhitespace()
 
@@ -275,7 +283,7 @@ object MessageFormat2:
       var continue = true
       while hasMore && continue do
         skipWhitespace()
-        if hasMore && template.substring(pos).startsWith(KeywordWhen) then
+        if hasMore && template.startsWith(KeywordWhen, pos) then
           pos += KeywordWhen.length
           skipWhitespace()
 
@@ -391,7 +399,7 @@ object MessageFormat2:
       // Parse body (pattern or match statement)
       // Check for .match without skipping whitespace first (to preserve whitespace-only messages)
       val body =
-        if hasMore && template.substring(pos).trim.startsWith(KeywordMatch) then
+        if hasMore && template.startsWith(KeywordMatch, firstNonBlank(pos)) then
           skipWhitespace()
           Right(parseMatchStatement())
         else if declarations.isEmpty && pos == 0 then
@@ -528,8 +536,9 @@ object MessageFormat2:
           case "0"                    => count == 0
           case "1"                    => count == 1
           case "2"                    => count == 2
-          case s if s.startsWith("=") => count == s.drop(1).toInt
-          case s if s.matches("\\d+") => count == s.toInt
+          // A key that is not a number in Int range (`=abc`, `99999999999`) matches no count.
+          case s if s.startsWith("=") => s.drop(1).toIntOption.contains(count)
+          case s if s.matches("\\d+") => s.toIntOption.contains(count)
 
           // Plural category matching (locale-specific)
           case "one" =>

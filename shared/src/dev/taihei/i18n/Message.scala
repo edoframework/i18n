@@ -48,8 +48,12 @@ object Message:
   given JsonEncoder[MessageArg] = JsonEncoder[String].contramap(_.toString)
   given JsonDecoder[MessageArg] = JsonDecoder[String].map(identity)
 
+  /**
+   * The throwable's message, in English. A throwable without one (`new RuntimeException()`) gives
+   * its `toString`, the class name, rather than a message that cannot be translated.
+   */
   def of(throwable: Throwable): Message =
-    Message(Nil, Map.empty, Map(English -> throwable.getMessage))
+    Message(Nil, Map.empty, Map(English -> Option(throwable.getMessage).getOrElse(throwable.toString)))
 
   def of(value: String): Message = Message(Nil, Map.empty, Map(English -> value))
 

@@ -367,6 +367,57 @@ object MessageFormat2Spec extends ZIOSpecDefault:
         assertTrue(result == "Start A middle B end")
       },
     ),
+    suite("Keys and options that are not what they claim")(
+      test("a key `=abc` matches no count instead of throwing") {
+        val template = """.match {$count :plural}
+                         |when =abc {named}
+                         |when other {other}""".stripMargin
+        assertTrue(MessageFormat2.format(template, Map("count" -> 3)).trim == "other")
+      },
+      test("a numeric key beyond Int range matches no count instead of throwing") {
+        val template = """.match {$count :plural}
+                         |when 99999999999 {huge}
+                         |when =99999999999 {huge too}
+                         |when 3 {three}
+                         |when other {other}""".stripMargin
+        assertTrue(
+          MessageFormat2.format(template, Map("count" -> 3)).trim == "three",
+          MessageFormat2.format(template, Map("count" -> 4)).trim == "other",
+        )
+      },
+      test("an unknown dateStyle or timeStyle falls back to medium on both platforms") {
+        import java.time.{LocalDate, LocalDateTime, LocalTime}
+        val date                 = LocalDate.of(2024, 1, 15)
+        val dt                   = LocalDateTime.of(2024, 1, 15, 14, 30)
+        val time                 = LocalTime.of(14, 30)
+        def f(t: String, v: Any) = MessageFormat2.format(t, Map("v" -> v), "en")
+        val medium               = f("{$v :datetime dateStyle=medium}", date)
+        assertTrue(
+          medium.nonEmpty,
+          f("{$v :datetime dateStyle=bogus}", date) == medium,
+          f("{$v :datetime dateStyle=bogus timeStyle=bogus}", dt) == f("{$v :datetime}", dt),
+          f("{$v :datetime timeStyle=bogus}", time) == f("{$v :datetime timeStyle=medium}", time),
+        )
+      },
+      test("a style is read in any case, as on the JVM") {
+        import java.time.LocalDate
+        val date         = LocalDate.of(2024, 1, 15)
+        def f(t: String) = MessageFormat2.format(t, Map("v" -> date), "en")
+        assertTrue(f("{$v :datetime dateStyle=LONG}") == f("{$v :datetime dateStyle=long}"))
+      },
+    ),
+    suite("Parsing in place")(
+      test(".match after leading whitespace is still a match") {
+        val template = "  \t.match {$count}\nwhen 1 {one}\nwhen * {many}"
+        assertTrue(MessageFormat2.format(template, Map("count" -> 1)).trim == "one")
+      },
+      test("a match with thousands of cases selects the last one") {
+        val n        = 5000
+        val cases    = (1 to n).map(i => s"when $i {case $i}").mkString("\n")
+        val template = s".match {$$count}\n$cases\nwhen * {none}"
+        assertTrue(MessageFormat2.format(template, Map("count" -> n)).trim == s"case $n")
+      },
+    ),
   )
 
 end MessageFormat2Spec
