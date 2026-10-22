@@ -399,6 +399,18 @@ object MessageFormat2Spec extends ZIOSpecDefault:
           f("{$v :datetime timeStyle=bogus}", time) == f("{$v :datetime timeStyle=medium}", time),
         )
       },
+      test("a long or full timeStyle on a value without a zone gives a value on both platforms") {
+        import java.time.{LocalDateTime, LocalTime}
+        val dt                   = LocalDateTime.of(2024, 1, 15, 14, 30)
+        val time                 = LocalTime.of(14, 30)
+        def f(t: String, v: Any) = MessageFormat2.format(t, Map("v" -> v), "en")
+        val results              =
+          for
+            style  <- List("long", "full")
+            (t, v) <- List(s"{$$v :datetime timeStyle=$style}" -> time, s"{$$v :datetime timeStyle=$style}" -> dt)
+          yield f(t, v)
+        assertTrue(results.size == 4, results.forall(r => r.nonEmpty && r.contains("30")))
+      },
       test("a style is read in any case, as on the JVM") {
         import java.time.LocalDate
         val date         = LocalDate.of(2024, 1, 15)
