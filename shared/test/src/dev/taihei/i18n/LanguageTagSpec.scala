@@ -112,6 +112,33 @@ object LanguageTagSpec extends ZIOSpecDefault:
         }
       } @@ TestAspect.samples(5000),
     ),
+    suite("canonical form and errors")(
+      test("the case of a tag does not depend on the default locale") {
+        val turkish = java.util.Locale.forLanguageTag("tr-TR")
+        zio.ZIO.acquireReleaseWith(zio.ZIO.succeed {
+          val before = java.util.Locale.getDefault
+          java.util.Locale.setDefault(turkish)
+          before
+        })(before => zio.ZIO.succeed(java.util.Locale.setDefault(before))) { _ =>
+          zio.ZIO.succeed(
+            assertTrue(
+              Language("IT").tag == "it",
+              Language("en-in").tag == "en-IN",
+              Language("az-latn-IR").tag == "az-Latn-IR",
+              Language("en-x-PRIV").tag == "en-x-priv",
+            )
+          )
+        }
+      },
+      test("an invalid tag is echoed with its control characters escaped") {
+        val error = Language.parse("en\nUS\u001b[31m").swap.getOrElse("")
+        assertTrue(
+          error.startsWith("Not a BCP 47 language tag"),
+          error.contains("en\\u000aUS\\u001b[31m"),
+          error.forall(c => c >= ' ' && c <= '~'),
+        )
+      },
+    ),
     suite("a bound on the length")(
       test("a valid tag of 255 characters is accepted, of 256 refused") {
         val at255 = validTagOf(255)

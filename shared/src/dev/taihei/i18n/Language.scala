@@ -105,7 +105,12 @@ object Language:
     if trimmed.length > MaxTagLength then
       Left(s"Not a BCP 47 language tag: longer than $MaxTagLength characters")
     else if isWellFormed(trimmed) then Right(fromCanonical(canonical(trimmed)))
-    else Left(s"Not a BCP 47 language tag: '${tag.trim}'")
+    else Left(s"Not a BCP 47 language tag: '${printable(tag.trim)}'")
+
+  // The input as it may safely be logged: anything but printable ASCII as a \uXXXX escape, so a
+  // line break or a terminal control sequence in a caller's input does not reach a log as such.
+  private def printable(s: String): String =
+    s.flatMap(c => if c >= ' ' && c <= '~' then c.toString else "\\u%04x".format(c.toInt))
 
   private def isAlpha(c: Char): Boolean = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
   private def isDigit(c: Char): Boolean = c >= '0' && c <= '9'
@@ -219,6 +224,14 @@ object Language:
   private def fromCanonical(tag: String): Language =
     builtIns.find(_.tag == tag).getOrElse(new Language(tag))
 
+  // A well-formed tag is ASCII, so its case is changed by hand: String.toLowerCase and
+  // toUpperCase follow the default locale, and under a Turkish one "IT" would become "ıt".
+  private def lower(s: String): String =
+    s.map(c => if c >= 'A' && c <= 'Z' then (c + 32).toChar else c)
+
+  private def upper(s: String): String =
+    s.map(c => if c >= 'a' && c <= 'z' then (c - 32).toChar else c)
+
   // RFC 5646 §2.1.1: language lower case, script title case, region upper case, the rest lower.
   // Everything after a singleton (an extension or private use) stays lower case.
   private def canonical(tag: String): String =
@@ -227,10 +240,10 @@ object Language:
       case ((afterSingleton, acc), (p, i)) =>
         val singleton = p.length == 1
         val formatted =
-          if i == 0 || afterSingleton || singleton then p.toLowerCase
-          else if p.length == 4 && p.head.isLetter then s"${p.head.toUpper}${p.tail.toLowerCase}"
-          else if p.length == 2 || (p.length == 3 && p.head.isDigit) then p.toUpperCase
-          else p.toLowerCase
+          if i == 0 || afterSingleton || singleton then lower(p)
+          else if p.length == 4 && p.head.isLetter then upper(p.take(1)) + lower(p.drop(1))
+          else if p.length == 2 || (p.length == 3 && p.head.isDigit) then upper(p)
+          else lower(p)
         (afterSingleton || singleton, acc :+ formatted)
     out.mkString("-")
 
