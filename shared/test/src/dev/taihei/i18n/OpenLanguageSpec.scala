@@ -5,7 +5,7 @@ import zio.test.*
 
 import dev.taihei.i18n.Language.*
 
-/** Any BCP 47 language, beside the three built-ins (APP-2338). */
+/** Any BCP 47 language, beside the three built-ins (since 2.0.0). */
 object OpenLanguageSpec extends ZIOSpecDefault:
 
   private val German  = Language("de")

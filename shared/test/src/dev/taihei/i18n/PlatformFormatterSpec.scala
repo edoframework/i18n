@@ -6,7 +6,7 @@ import zio.test.*
 
 /**
  * The formatters on both platforms. The en/nl/fr expectations are the output from before
- * APP-2338, taken on the JVM and in Node; German is what any language now gets instead of the
+ * 2.0.0, taken on the JVM and in Node; German is what any language now gets instead of the
  * JVM's default locale or JavaScript's en-US.
  */
 object PlatformFormatterSpec extends ZIOSpecDefault:

@@ -1,9 +1,9 @@
 ---
 name: taihei-i18n
-description: How to use Taihei Framework i18n (taihei-i18n, formerly edo-i18n and genius-i18n) — Innovenso's composable, type-safe internationalization library for Scala 3 (JVM + Scala.js). Apply when writing or reviewing Scala that handles locales, translatable messages, ICU MessageFormat 2.0, or locale-aware number/date formatting with the dev.taihei.i18n.* API (genius.i18n.* before 3.0.0) (Language, Message, MessageFormat2, CoreMessages, PlatformNumberFormatter/PlatformDateTimeFormatter). Covers the model, the message API, the formatter syntax, the pre-built message library, cross-platform notes, and the build.
+description: How to use Taihei Framework i18n (taihei-i18n, formerly edo-i18n and genius-i18n) — Innovenso's composable, type-safe internationalization library for Scala 3 (JVM + Scala.js). Apply when writing or reviewing Scala that handles locales, translatable messages, ICU MessageFormat 2.0, or locale-aware number/date formatting with the dev.taihei.i18n.* API (com.edoframework.i18n.* in 3.0.0, genius.i18n.* before) (Language, Message, MessageFormat2, CoreMessages, PlatformNumberFormatter/PlatformDateTimeFormatter). Covers the model, the message API, the formatter syntax, the pre-built message library, cross-platform notes, and the build.
 ---
 
-# Taihei Framework i18n (formerly genius-i18n)
+# Taihei Framework i18n (formerly edo-i18n and genius-i18n)
 
 A composable, type-safe i18n library for Scala 3, cross-compiled for the **JVM and
 Scala.js**. It gives you a small set of value types — a `Language` and a
@@ -19,15 +19,15 @@ package `com.edoframework.i18n`; up to 2.0.0 it was `fish.genius::genius-i18n` i
 
 ## When to use this skill
 
-Read this whenever you write or review Scala that imports `dev.taihei.i18n.*` (or `genius.i18n.*` before 3.0.0) —
+Read this whenever you write or review Scala that imports `dev.taihei.i18n.*` (or `com.edoframework.i18n.*` in 3.0.0, `genius.i18n.*` before) —
 building translatable messages, parsing/selecting a locale, formatting numbers or
 dates per-locale, using the `CoreMessages` library, or working with the ICU
 MessageFormat 2.0 syntax. It also flags the cross-platform (JVM/JS) considerations.
 
 ## The model
 
-Unlike the sibling DSL libraries (genius-latex, genius-uml), this is **plain value
-types + functions**, not a context-function DSL — there are no markers or AST.
+This is **plain value types + functions**, not a context-function DSL — there are
+no markers or AST.
 Four pieces:
 
 - **`Language`** — a language by its BCP 47 tag: the built-ins `English`, `Dutch`,

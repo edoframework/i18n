@@ -1,7 +1,8 @@
 name: DCO
 
 # Every commit in a pull request carries a Signed-off-by line matching its author
-# (the Developer Certificate of Origin, see CONTRIBUTING.md). Runs with read-only
+# (the Developer Certificate of Origin, see
+# https://github.com/taiheiframework/.github/blob/main/CONTRIBUTING.md). Runs with read-only
 # permissions and no secrets, so a pull request from a fork is safe to check.
 on:
   pull_request:

@@ -7,7 +7,7 @@ import zio.json.*
 /**
  * A language, identified by its canonical BCP 47 tag (`en`, `nl-BE`, `de`, `zh-Hant-TW`).
  *
- * It used to be a closed enum of English, Dutch and French (APP-2338). It is a class now so that
+ * It used to be a closed enum of English, Dutch and French before 2.0.0. It is a class now so that
  * any language can be named, while the three built-ins stay `val`s in the companion: `case
  * English =>` still matches (a stable identifier compares with `==`), but a `match` on a
  * `Language` is no longer checked for exhaustiveness and needs a `case _`.

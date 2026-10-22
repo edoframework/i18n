@@ -36,7 +36,7 @@ CoreMessages.Validation.formatErrors(errors).translate(Language.English)
 // Validation failed: email (…), password (…)
 ```
 
-> Note: in the platform, `Map[String, List[Message]]` is the expansion of the
-> `genius.validation.ValidationErrors` alias. This library inlines the plain `Map`
-> type so it carries no dependency on the validation package — `formatErrors` still
-> accepts a platform `ValidationErrors` value unchanged (it's a transparent alias).
+> Note: `formatErrors` takes a plain `Map[String, List[Message]]`, so the library
+> depends on no validation package. A type alias for that `Map` in your own code
+> (for example `type ValidationErrors = Map[String, List[Message]]`) is accepted
+> unchanged.

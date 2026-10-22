@@ -62,8 +62,11 @@ make publish-dry-run                           # the signed bundle, written to o
 Publishing reads the Central Portal user token and the release key from
 `~/.edo-release.env` or the environment (`MILL_SONATYPE_USERNAME`,
 `MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`, `MILL_PGP_PASSPHRASE`).
-Releases are signed by the Taihei Framework release key,
-fingerprint `5026 B299 6DDB 697E C463  0BCF 14A7 33E2 A507 702F`.
+Releases are signed by the Taihei Framework release key, fingerprint
+`5026 B299 6DDB 697E C463  0BCF 14A7 33E2 A507 702F`. Its user id is still
+`Edo Framework Releases <releases@edoframework.com>`, from before the family was renamed;
+the fingerprint is what to verify. It is published on keyserver.ubuntu.com and
+keys.openpgp.org.
 
 ## Coming from edo-i18n 3.0.0 or genius-i18n
 

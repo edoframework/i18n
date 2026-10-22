@@ -8,7 +8,7 @@ object PlatformLocales:
   /**
    * The `Intl` locale a formatter uses for a language tag. A bare `en`, `nl` or `fr` keeps the
    * region it always had (US, NL, FR), so their output did not change when any language became
-   * possible (APP-2338); any other valid tag that `Intl` accepts is passed on canonicalized, and
+   * possible (2.0.0); any other valid tag that `Intl` accepts is passed on canonicalized, and
    * anything else falls back to the US format English uses rather than make `Intl` throw.
    */
   def jsLocale(tag: String): String = tag match

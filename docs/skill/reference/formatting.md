@@ -40,14 +40,15 @@ them directly only when you need a one-off formatted value outside a template.
 ## Build & layout
 
 ```
-shared/src/genius/i18n/   Language, Message, MessageFormat2, CoreMessages
-jvm/src/genius/i18n/      PlatformNumberFormatter, PlatformDateTimeFormatter (java.*)
-js/src/genius/i18n/       PlatformNumberFormatter, PlatformDateTimeFormatter (Intl)
-shared/test/src/genius/i18n/  specs (run on both platforms)
+shared/src/dev/taihei/i18n/   Language, Message, MessageFormat2, CoreMessages
+jvm/src/dev/taihei/i18n/      PlatformNumberFormatter, PlatformDateTimeFormatter (java.*)
+js/src/dev/taihei/i18n/       PlatformNumberFormatter, PlatformDateTimeFormatter (Intl)
+shared/test/src/dev/taihei/i18n/  specs (run on both platforms)
 ```
 
 - `make compile` / `make test` cover both platforms (`./mill __.compile`,
   `./mill __.test.testForked` → `i18n.jvm` **and** `i18n.js`; JS tests run on Node).
 - Single-platform: `./mill i18n.jvm.test` or `./mill i18n.js.test`.
-- Released via the mill-release flow (`make release-prepare TYPE=…` →
-  `make release-finalize`), same as the other Genius Fish libraries.
+- Released from the Makefile (`make release-prepare TYPE=…` →
+  `make release-finalize`), the version taken from the git tag, as in the other
+  Taihei Framework libraries.

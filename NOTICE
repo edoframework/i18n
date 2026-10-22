@@ -5,7 +5,13 @@ This product is developed by Innovenso BV (https://innovenso.com) as part of
 the Taihei Framework (https://taihei.dev).
 
 Versions up to and including 2.0.0 were published as fish.genius::genius-i18n
-under the MIT License, and remain available under it.
+under the MIT License, and remain available under it. Their copyright notice
+read:
+
+    Copyright (c) 2026 Jurgen Lust / Genius Fish
+
+That code is Jurgen Lust's own work. With his permission, Innovenso BV
+publishes it under the Apache License 2.0 from version 3.0.0 on.
 
 Version 3.0.0 was published as com.edoframework::edo-i18n, as part of the
 Edo Framework, under the Apache License 2.0.
