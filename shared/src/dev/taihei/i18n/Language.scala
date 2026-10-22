@@ -91,19 +91,88 @@ object Language:
     ),
   )
 
-  // BCP 47 (RFC 5646) langtag: language[-extlang][-script][-region][-variant]*[-extension]*
-  // [-privateuse]. The primary language is held to two or three letters (ISO 639), so that a
-  // word such as "invalid" is refused rather than read as a reserved 5-8 letter subtag.
-  private val LangTag =
-    ("(?i)[a-z]{2,3}(-[a-z]{3}){0,3}(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?" +
-    "(-([a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(-[0-9a-wyz](-[a-z0-9]{2,8})+)*(-x(-[a-z0-9]{1,8})+)?")
-      .r
+  // Longer than any tag in practical use: RFC 5646 §4.4.1 asks implementations for at least 35
+  // characters for language, extlang, script, region and variant, and tags with extensions stay
+  // well under 100.
+  private val MaxTagLength = 255
 
-  /** The language for a BCP 47 tag, canonicalized (`NL-be` gives `nl-BE`), or why it is not one. */
+  /**
+   * The language for a BCP 47 tag, canonicalized (`NL-be` gives `nl-BE`), or why it is not one. A
+   * tag longer than 255 characters, after surrounding whitespace is trimmed, is refused.
+   */
   def parse(tag: String): Either[String, Language] =
     val trimmed = tag.trim.replace('_', '-')
-    if LangTag.matches(trimmed) then Right(fromCanonical(canonical(trimmed)))
-    else Left(s"Not a BCP 47 language tag: '$tag'")
+    if trimmed.length > MaxTagLength then
+      Left(s"Not a BCP 47 language tag: longer than $MaxTagLength characters")
+    else if isWellFormed(trimmed) then Right(fromCanonical(canonical(trimmed)))
+    else Left(s"Not a BCP 47 language tag: '${tag.trim}'")
+
+  private def isAlpha(c: Char): Boolean = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+  private def isDigit(c: Char): Boolean = c >= '0' && c <= '9'
+  private def isAlnum(c: Char): Boolean = isAlpha(c) || isDigit(c)
+
+  private def isLanguage(s: String): Boolean = s.length >= 2 && s.length <= 3 && s.forall(isAlpha)
+  private def isExtlang(s: String): Boolean  = s.length == 3 && s.forall(isAlpha)
+  private def isScript(s: String): Boolean   = s.length == 4 && s.forall(isAlpha)
+
+  private def isRegion(s: String): Boolean =
+    (s.length == 2 && s.forall(isAlpha)) || (s.length == 3 && s.forall(isDigit))
+
+  private def isVariant(s: String): Boolean =
+    s.forall(isAlnum) && ((s.length >= 5 && s.length <= 8) || (s.length == 4 && isDigit(s.head)))
+
+  private def isExtension(s: String): Boolean =
+    s.length == 1 && isAlnum(s.head) && s.head != 'x' && s.head != 'X'
+
+  private def isExtensionPart(s: String): Boolean =
+    s.length >= 2 && s.length <= 8 && s.forall(isAlnum)
+
+  private def isPrivateUse(s: String): Boolean = s == "x" || s == "X"
+
+  private def isPrivateUsePart(s: String): Boolean = s.length >= 1 && s.length <= 8 &&
+    s.forall(isAlnum)
+
+  // BCP 47 (RFC 5646) langtag: language[-extlang]{0,3}[-script][-region][-variant]*[-extension]*
+  // [-privateuse], ASCII letters and digits in any case. The primary language is held to two or
+  // three letters (ISO 639), so that a word such as "invalid" is refused rather than read as a
+  // reserved 5-8 letter subtag. Each kind of subtag has a shape no other kind before the
+  // extensions shares, so one pass in that order decides.
+  private def isWellFormed(tag: String): Boolean =
+    // A limit of -1 keeps empty subtags ("en-", "en--US"), which are refused.
+    val subtags = tag.split("-", -1)
+
+    // The index after at most `max` subtags from `from` that satisfy `p`.
+    def skip(
+      from: Int,
+      max: Int,
+      p: String => Boolean,
+    ): Int =
+      var i = from
+      while i < subtags.length && i - from < max && p(subtags(i)) do i += 1
+      i
+
+    // A singleton followed by at least one subtag of its kind; -1 when it has none.
+    def section(
+      from: Int,
+      singleton: String => Boolean,
+      part: String => Boolean,
+    ): Int =
+      if from < subtags.length && singleton(subtags(from)) then
+        val end = skip(from + 1, Int.MaxValue, part)
+        if end == from + 1 then -1 else end
+      else from
+
+    val language = skip(0, 1, isLanguage)
+    if language == 0 then false
+    else
+      val region = skip(skip(skip(language, 3, isExtlang), 1, isScript), 1, isRegion)
+      var at     = skip(region, Int.MaxValue, isVariant)
+      var next   = section(at, isExtension, isExtensionPart)
+      while next > at do
+        at = next
+        next = section(at, isExtension, isExtensionPart)
+      next >= 0 && section(at, isPrivateUse, isPrivateUsePart) == subtags.length
+  end isWellFormed
 
   /** The language for a BCP 47 tag; throws `IllegalArgumentException` on anything else. */
   def apply(tag: String): Language =

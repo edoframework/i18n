@@ -31,7 +31,7 @@ Companion:
 
 | Member | Result |
 | --- | --- |
-| `Language(tag: String): Language` | any valid BCP 47 tag, canonicalized; `IllegalArgumentException` otherwise |
+| `Language(tag: String): Language` | any valid BCP 47 tag of at most 255 characters, canonicalized; `IllegalArgumentException` otherwise |
 | `Language.parse(tag: String): Either[String, Language]` | the same without throwing |
 | `Language.of(isoCode: String): Language` | the language for a valid tag; `English` only for invalid input |
 | `Language.values: Array[Language]` | the built-ins (`English`, `Dutch`, `French`) |
