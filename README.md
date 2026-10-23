@@ -279,7 +279,8 @@ language:
 - A `Text` is `{"text":"Disk full","language":"en"}`.
 - The 4.x shape (`args`, `namedArgs`, `translationTemplates`) is still read, as a legacy message
   under the key `legacy`, so stored 4.x JSON and a 4.x peer keep working.
-- Input is bounded: messages nest at most 8 deep, a list holds at most 10000 elements, a 4.x
+- Input is bounded: messages nest at most 8 deep, the kept arguments of a message with an unknown
+  key at most 16 levels and 100000 values, a list holds at most 10000 elements, a 4.x
   message brings at most 1000 templates of at most 64K characters, a catalogue is at most 4M
   characters, 100000 messages and 16 levels of JSON nesting, and one template formats to at most
   a million characters (past that it falls back).
