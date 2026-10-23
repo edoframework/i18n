@@ -9,7 +9,7 @@ import scala.quoted.*
 // The compile-time half of MessageFamily.message. It reads only the code it is applied to and
 // runs the library's own MF2 checks, so it needs no build plugin and incremental compilation stays
 // correct.
-// Called from the expansion of MessageFamily.message in user code, so its name is binary API.
+// Named by the inline MessageFamily.message: public in the bytecode so that no accessor is needed.
 @publicInBinary
 private[i18n] object MessageMacros:
 

@@ -23,13 +23,19 @@ object ShopSpec extends ZIOSpecDefault:
       )
     },
     test("a lazy val adds its definition once, when it is first used") {
-      val before = Shop.definitions.map(_.key.value)
-      val a      = Shop.later
-      val b      = Shop.later
+      val a = Shop.later
+      val b = Shop.later
+      assertTrue(a == b, Shop.definitions.count(_.key.value == "example.shop.later") == 1)
+    },
+    test("two messages under one val name are reported by verify") {
+      object Twice extends MessageFamily("example.twice"):
+        val dup =
+          message("first"); message("second")
       assertTrue(
-        !before.contains("example.shop.later") || before.count(_ == "example.shop.later") == 1,
-        a == b,
-        Shop.definitions.count(_.key.value == "example.shop.later") == 1,
+        Twice.dup.toString == "second",
+        Catalogues.verify(Seq(Twice), Nil).exists(p =>
+          p.message == "defined twice" && p.key.exists(_.value == "example.twice.dup")
+        ),
       )
     },
     test("a message is a val of its family object, nowhere else") {

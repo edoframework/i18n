@@ -129,7 +129,8 @@ Dutch)`). Each message is a `val` defined with `message`:
 
 The key of a message is the prefix, a dot and the val's name: `order.shipped`. A message is a
 plain `val` of the family object; in a `def`, a nested object or a class it does not compile, and
-a `lazy val` would only join the family's definitions when first used. A `Message` is
+a `lazy val` joins the family's definitions only when first used, so `verify`, the export and a
+registry that reads its messages from JSON do not see it before. A `Message` is
 that key and the argument values, nothing else; its translations stay in the family and in
 catalogues.
 

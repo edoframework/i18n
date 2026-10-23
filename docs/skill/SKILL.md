@@ -61,7 +61,8 @@ Orders.shipped(count = 3, on = today).localize(Dutch)  // falls back to English,
 
 - `message` works only as the right-hand side of a `val` in the family's body, with a literal
   template; a `def`, a nested object or a class is a compile error. Use a plain `val`, not a
-  `lazy val` (it would join `definitions` only when first used). The key is the val's name:
+  `lazy val` (it joins `definitions` only when first used, unseen by verify, the export and
+  JSON decoding until then). The key is the val's name:
   renaming the val changes the key, which is a wire contract.
 - A key is a contract: never reuse it for other arguments. Adding an argument needs a new key
   unless it is an `Option`.
