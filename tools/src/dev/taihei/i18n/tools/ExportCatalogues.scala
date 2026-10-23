@@ -49,7 +49,10 @@ object ExportCatalogues:
   private def parse(args: List[String], acc: Options): Either[String, Options] = args match
     case Nil                        => Right(acc)
     case "--out" :: dir :: rest     => parse(rest, acc.copy(out = Some(Paths.get(dir))))
-    case "--scan" :: pkg :: rest    => parse(rest, acc.copy(scan = acc.scan :+ pkg))
+    case "--scan" :: pkg :: rest    =>
+      // A package name, never the whole class path, nor a path out of it.
+      if MessageKey.isPrefix(pkg) then parse(rest, acc.copy(scan = acc.scan :+ pkg))
+      else Left(s"not a package name: '${Printable(pkg)}'")
     case "--family" :: name :: rest => parse(rest, acc.copy(families = acc.families :+ name))
     case other :: _                 => Left(s"unknown argument: $other")
 

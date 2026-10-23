@@ -84,6 +84,8 @@ object ExportCataloguesSpec extends ZIOSpecDefault:
         run()._1 == 2,
         run("--out", "x")._1 == 2,
         run("--bogus")._1 == 2,
+        run("--out", "x", "--scan", "")._1 == 2,
+        run("--out", "x", "--scan", "../etc")._1 == 2,
         run("--out", Files.createTempDirectory("x").toString, "--family", "no.such.Family")._1 == 2,
       )
     },
