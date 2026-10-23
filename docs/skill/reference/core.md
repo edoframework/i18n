@@ -107,4 +107,7 @@ template for a requested language falls back to the default (English).
 
 Codecs (given): `JsonCodec[Message]` (serializes `args` + `namedArgs` +
 `translationTemplates`, so the message stays translatable after a round-trip), and
-`JsonEncoder`/`JsonDecoder[MessageArg]` (args coerced to/from strings).
+`JsonEncoder`/`JsonDecoder[MessageArg]` (args coerced to/from strings). Since 4.0.2 a
+message read from JSON holds at most 1000 templates and 1000 arguments (positional and named
+together), and no template, argument or argument name longer than 65536 characters; a larger one
+is a decoding error.

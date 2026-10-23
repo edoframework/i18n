@@ -20,6 +20,9 @@ time you write templates inside `Message.withNamedArgs(...)` rather than calling
 `MessageFormat2.format` directly. Reach for `format` when you have a raw template
 string and an argument map.
 
+Since 4.0.2 the text of one template is at most a million characters: a template whose text
+would be longer comes back from `format` as it was written.
+
 ## Placeholders
 
 | Syntax | Effect |

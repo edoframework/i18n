@@ -17,9 +17,9 @@ Published on Maven Central under `dev.taihei`:
 | `taihei-i18n_sjs1`      | Scala.js | The same API, formatting via the browser `Intl` API. |
 
 ```scala
-mvn"dev.taihei::taihei-i18n:4.0.1"     // Mill, JVM
-mvn"dev.taihei::taihei-i18n::4.0.1"    // Mill, Scala.js
-"dev.taihei" %%% "taihei-i18n" % "4.0.1" // sbt
+mvn"dev.taihei::taihei-i18n:4.0.2"     // Mill, JVM
+mvn"dev.taihei::taihei-i18n::4.0.2"    // Mill, Scala.js
+"dev.taihei" %%% "taihei-i18n" % "4.0.2" // sbt
 ```
 
 The `shared/` sources compile on both platforms; `jvm/` and `js/` hold only the
