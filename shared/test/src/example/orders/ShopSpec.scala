@@ -5,12 +5,12 @@ import java.time.LocalDate
 import zio.json.*
 import zio.test.*
 
-import dev.taihei.i18n.*
-import dev.taihei.i18n.Language.*
+import dev.taihei.tsuji.*
+import dev.taihei.tsuji.Language.*
 
 object ShopSpec extends ZIOSpecDefault:
 
-  def spec = suite("a family defined outside dev.taihei.i18n")(
+  def spec = suite("a family defined outside dev.taihei.tsuji")(
     test("its messages show, round-trip and verify") {
       given Catalogues = Catalogues(Seq(Shop))
       val opens = Shop.opens(on = LocalDate.of(2026, 11, 2), by = "Ann")

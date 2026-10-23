@@ -103,17 +103,17 @@ trait TaiheiPublishSettings extends PublishModule {
   def pomSettings = PomSettings(
     description = "Type-safe i18n for Scala 3: languages, typed message families and catalogues, ICU MessageFormat 2.0 and locale-aware formatting; JVM and Scala.js",
     organization = "dev.taihei",
-    url = "https://github.com/taiheiframework/i18n",
+    url = "https://github.com/taiheiframework/tsuji",
     licenses = Seq(License.`Apache-2.0`),
-    versionControl = VersionControl.github("taiheiframework", "i18n"),
+    versionControl = VersionControl.github("taiheiframework", "tsuji"),
     developers = Seq(
       Developer("innovenso", "Innovenso BV", "https://taihei.dev", Some("Innovenso BV"), Some("https://innovenso.com")),
     ),
   )
 }
 
-// Silences the deprecation of dev.taihei.i18n.legacy, which its tests use on purpose.
-val LegacyInTests = Seq("-Wconf:cat=deprecation&origin=dev\\.taihei\\.i18n\\.legacy\\..*:s")
+// Silences the deprecation of dev.taihei.tsuji.legacy, which its tests use on purpose.
+val LegacyInTests = Seq("-Wconf:cat=deprecation&origin=dev\\.taihei\\.tsuji\\.legacy\\..*:s")
 
 // ---------------------------------------------------------------------------
 // Base trait for JVM modules
@@ -196,13 +196,13 @@ trait TaiheiJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModu
 val wsRoot = os.Path(sys.env("MILL_WORKSPACE_ROOT"))
 
 // ---------------------------------------------------------------------------
-// Module: i18n (cross-platform JVM + JS)
+// Module: tsuji (cross-platform JVM + JS)
 //   shared sources compile on both platforms; jvm/ and js/ hold the
 //   platform-specific number/date formatters.
 // ---------------------------------------------------------------------------
-object i18n extends Module {
+object tsuji extends Module {
   object jvm extends TaiheiModule {
-    def artifactName = "taihei-i18n"
+    def artifactName = "taihei-tsuji"
 
     def sources = Task.Sources(
       wsRoot / "shared" / "src",
@@ -214,7 +214,7 @@ object i18n extends Module {
     )
 
     // The catalogue files of CoreMessages, read from the classpath. Scala.js has no classpath:
-    // a browser application serves the files that taihei-i18n-tools exports.
+    // a browser application serves the files that taihei-tsuji-tools exports.
     def resources = Task.Sources(
       wsRoot / "shared" / "resources",
     )
@@ -232,7 +232,7 @@ object i18n extends Module {
   }
 
   object js extends TaiheiJSModule {
-    def artifactName = "taihei-i18n"
+    def artifactName = "taihei-tsuji"
 
     def sources = Task.Sources(
       wsRoot / "shared" / "src",
@@ -252,17 +252,17 @@ object i18n extends Module {
   }
 
   // ---------------------------------------------------------------------------
-  // taihei-i18n-tools: the JVM-only program that exports catalogues. JVM only because its whole
+  // taihei-tsuji-tools: the JVM-only program that exports catalogues. JVM only because its whole
   // job is writing files.
   // ---------------------------------------------------------------------------
   object tools extends TaiheiModule {
-    def artifactName = "taihei-i18n-tools"
+    def artifactName = "taihei-tsuji-tools"
 
     def pomSettings = Task {
-      super.pomSettings().copy(description = "Exports the message catalogues of taihei-i18n families to per-language JSON files; JVM")
+      super.pomSettings().copy(description = "Exports the message catalogues of taihei-tsuji families to per-language JSON files; JVM")
     }
 
-    def moduleDeps = Seq(i18n.jvm)
+    def moduleDeps = Seq(tsuji.jvm)
 
     def sources = Task.Sources(
       wsRoot / "tools" / "src",

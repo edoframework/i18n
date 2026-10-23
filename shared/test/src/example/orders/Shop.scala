@@ -2,8 +2,8 @@ package example.orders
 
 import java.time.LocalDate
 
-import dev.taihei.i18n.*
-import dev.taihei.i18n.Language.*
+import dev.taihei.tsuji.*
+import dev.taihei.tsuji.Language.*
 
 // A family outside the library's package, where every user defines theirs: the expansion of
 // `message` may only use what is public in the bytecode.

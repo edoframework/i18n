@@ -1,4 +1,4 @@
-name: Taihei Framework i18n CI
+name: Taihei Tsuji CI
 
 on:
   push:

@@ -3,7 +3,7 @@ SHELL = /bin/bash
 # Maven Central paths of every published artifact, used to see whether a version is already
 # released. Central is immutable: a version that is there cannot be published again, and a
 # release publishes all of them or none.
-CENTRAL_PATHS = dev/taihei/taihei-i18n_3 dev/taihei/taihei-i18n_sjs1_3 dev/taihei/taihei-i18n-tools_3
+CENTRAL_PATHS = dev/taihei/taihei-tsuji_3 dev/taihei/taihei-tsuji_sjs1_3 dev/taihei/taihei-tsuji-tools_3
 
 # The folders whose files go into the published jars (build.mill names no other: its published
 # modules have no default resource folders). Mill packs whatever is there, also files git does
@@ -11,7 +11,7 @@ CENTRAL_PATHS = dev/taihei/taihei-i18n_3 dev/taihei/taihei-i18n_sjs1_3 dev/taihe
 # file is present, whatever git's settings for untracked files, and when a tracked file there is
 # marked assume-unchanged or skip-worktree, which hides its edits from git status: what is
 # published is what the tag holds.
-SOURCE_DIRS = shared jvm js tools i18n
+SOURCE_DIRS = shared jvm js tools tsuji
 STRAY_GUARD = STRAY=$$(git status --porcelain --ignored --untracked-files=all -- $(SOURCE_DIRS)); \
 	HIDDEN=$$(git ls-files -v -- $(SOURCE_DIRS) | grep -E '^[a-zS]' || true); \
 	if [ -n "$$STRAY$$HIDDEN" ]; then echo "[ERROR] files git does not track, or hides changes of, would be published:"; echo "$$STRAY$$HIDDEN"; exit 1; fi
@@ -60,7 +60,7 @@ prepare: fix fmt compile
 
 build: prepare test
 
-# __.test.testForked resolves to both i18n.jvm.test and i18n.js.test
+# __.test.testForked resolves to both tsuji.jvm.test and tsuji.js.test
 # (JS tests run under Node).
 test:
 	./mill __.test.testForked
@@ -107,7 +107,7 @@ publish:
 	case "$$VERSION" in *-SNAPSHOT) echo "[publish] refused: $$VERSION is not a release (an exact v-tag on a clean tree)"; exit 1;; esac; \
 	$(VERSION_GUARD); \
 	echo "[publish] $$VERSION to Maven Central"; \
-	./mill mill.javalib.SonatypeCentralPublishModule/ --bundleName "dev.taihei-taihei-i18n-$$VERSION"
+	./mill mill.javalib.SonatypeCentralPublishModule/ --bundleName "dev.taihei-taihei-tsuji-$$VERSION"
 
 # The same bundle, signed, written to out/ instead of uploaded: what Central would receive. Mill
 # names a bundle only for a release version, so a SNAPSHOT dry run writes it unnamed.
@@ -117,7 +117,7 @@ publish-dry-run:
 	trap './mill shutdown >/dev/null 2>&1 || true' EXIT; \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
-	case "$$VERSION" in *-SNAPSHOT) BUNDLE=();; *) BUNDLE=(--bundleName "dev.taihei-taihei-i18n-$$VERSION");; esac; \
+	case "$$VERSION" in *-SNAPSHOT) BUNDLE=();; *) BUNDLE=(--bundleName "dev.taihei-taihei-tsuji-$$VERSION");; esac; \
 	MILL_TESTS_PUBLISH_DRY_RUN=1 ./mill mill.javalib.SonatypeCentralPublishModule/ "$${BUNDLE[@]}"; \
 	echo "[publish-dry-run] bundle in out/mill.javalib.SonatypeCentralPublishModule/publishAll.dest/repository"
 
