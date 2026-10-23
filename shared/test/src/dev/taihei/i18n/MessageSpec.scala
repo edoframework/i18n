@@ -490,6 +490,8 @@ object MessageSpec extends ZIOSpecDefault:
         val msg = Message(Nil, Map("n" * 65537 -> "v"), Map(Language.English -> "x"))
         assertTrue(msg.toJson.fromJson[Message].left.exists(_.contains("argument name is longer")))
       },
+      // The timeouts below fire on the JVM only: Scala.js decodes synchronously on its one thread,
+      // so there a regression shows as a run that does not finish rather than a failure.
       test("many argument names with one hash are counted before they are hashed") {
         // "Aa" and "BB" have the same hashCode, so every name built from them shares one.
         val names = (0 until (1 << 17)).map(i =>
