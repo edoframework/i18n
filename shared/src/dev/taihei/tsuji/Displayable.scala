@@ -215,7 +215,8 @@ object Message:
 
   // The arguments of a message whose key this program does not know are kept as they came, to be
   // written out again. Hashing or writing JSON recurses per level, so their depth and size are
-  // checked here, without recursion.
+  // checked here, without recursion, and so are the names of an object, which comparing two
+  // messages puts in a map.
   private val MaxKeptDepth = 16
   private val MaxKeptNodes = 100000
 
@@ -232,9 +233,17 @@ object Message:
         problem = Some(s"the arguments of an unknown message hold more than $MaxKeptNodes values")
       else
         json match
-          case Json.Obj(fields)  => fields.foreach((_, v) => pending.push(v -> (depth + 1)))
+          case Json.Obj(fields)  =>
+            // Comparing two objects builds a map of one of them.
+            if fields.size > SharedHashes.Max && SharedHashes.exceed(fields.map(_._1)) then
+              problem = Some(
+                s"more than ${SharedHashes.Max} names in the arguments of an unknown message share a hash code"
+              )
+            else fields.foreach((_, v) => pending.push(v -> (depth + 1)))
           case Json.Arr(element) => element.foreach(v => pending.push(v -> (depth + 1)))
           case _                 => ()
+      end if
+    end while
     problem.toLeft(())
 
   end keptArgsWithinBounds

@@ -366,6 +366,34 @@ object MessageFamilySpec extends ZIOSpecDefault:
           )),
         )
       },
+      // The timeouts below fire on the JVM only: Scala.js decodes synchronously on its one thread,
+      // so there a regression shows as a run that does not finish rather than a failure.
+      test("a 4.x message with many argument names of one hash is counted before they are hashed") {
+        given Catalogues = Catalogues()
+        val names = SameHash.names(17)
+        val json  = names.map(n => s""""$n":"v"""").mkString(
+          """{"args":[],"namedArgs":{""",
+          ",",
+          """},"translationTemplates":{"en":"x"}}""",
+        )
+        assertTrue(
+          names.map(_.hashCode).distinct.size == 1,
+          json.fromJson[Message].left.exists(_.contains("1000 arguments")),
+        )
+      } @@ TestAspect.timeout(zio.Duration.fromSeconds(15)),
+      test("the kept arguments of an unknown message with many names of one hash are refused") {
+        given Catalogues = Catalogues()
+        val names              = SameHash.names(16)
+        val args               = names.map(n => s""""$n":1""").mkString("{", ",", "}")
+        val few                = SameHash.names(4).map(n => s""""$n":1""").mkString("{", ",", "}")
+        def unknown(a: String) = s"""{"key":"newer.message","args":$a,"text":"x"}"""
+        assertTrue(
+          unknown(args).fromJson[Message].left.exists(_.contains("share a hash code")),
+          unknown(s"""{"outer":$args}""").fromJson[Message].left.exists(_.contains("share a hash code")),
+          unknown(few).fromJson[Message] == unknown(few).fromJson[Message],
+          unknown(few).fromJson[Message].isRight,
+        )
+      } @@ TestAspect.timeout(zio.Duration.fromSeconds(15)),
       test("template errors escape what they echo, and stay short") {
         val errors = MessageFormat2.validate(".match {$n :plural} when \u001b\u202e {x} when * {y}") ++
           MessageFormat2.validate("{" + "\u00e9" * 60000 + "}")
@@ -419,6 +447,19 @@ object MessageFamilySpec extends ZIOSpecDefault:
         val file = """{"format":1,"language":"de","messages":{"a.b":"one","a.b":"two"}}"""
         assertTrue(Catalogue.parse(file).map(c => c.messages.values.toList -> c.problems.size) == Right(List("one") -> 1))
       },
+      test("a catalogue whose keys share hash codes beyond what real keys do is refused") {
+        val keys                  = SameHash.names(16).map("k." + _)
+        def file(ks: Seq[String]) =
+          ks.map(k => s""""$k":"x"""").mkString("""{"format":1,"language":"de","messages":{""", ",", "}}")
+        val few                   = keys.take(SharedHashes.Max)
+        assertTrue(
+          keys.map(_.hashCode).distinct.size == 1,
+          file(keys).length < Catalogue.MaxLength,
+          Catalogue.parse(file(keys)).left.exists(_.message.contains("share a hash code")),
+          Catalogue.parse(file(few)).map(_.messages.size) == Right(SharedHashes.Max),
+          Catalogue.parse(file(keys.take(SharedHashes.Max + 1))).isLeft,
+        )
+      } @@ TestAspect.timeout(zio.Duration.fromSeconds(15)),
       test("random input never throws") {
         check(Gen.stringBounded(0, 300)(Gen.elements('{', '}', '[', ']', '"', ':', ',', '\\', 'a', '1', ' '))) { s =>
           assertTrue(Catalogue.parse(s).isLeft || Catalogue.parse(s).isRight)
@@ -458,3 +499,11 @@ object MessageFamilySpec extends ZIOSpecDefault:
   )
 
 end MessageFamilySpec
+
+// Names that all have one hash code: "Aa" and "BB" share theirs, so every string of n such pairs
+// does too, and there are 2^n of them.
+private object SameHash:
+
+  def names(n: Int): IndexedSeq[String] = (0 until (1 << n)).map(i =>
+    (0 until n).map(b => if (i >> b & 1) == 1 then "Aa" else "BB").mkString
+  )

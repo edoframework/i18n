@@ -269,9 +269,12 @@ language:
   under the key `legacy`, so stored 4.x JSON and a 4.x peer keep working.
 - Input is bounded: messages nest at most 8 deep, the kept arguments of a message with an unknown
   key at most 16 levels and 100000 values, a list holds at most 10000 elements, a 4.x
-  message brings at most 1000 templates of at most 64K characters, a catalogue is at most 4M
-  characters, 100000 messages and 16 levels of JSON nesting, and one template formats to at most
-  a million characters (past that it falls back).
+  message brings at most 1000 templates and 1000 arguments of at most 64K characters, a
+  catalogue is at most 4M characters, 100000 messages and 16 levels of JSON nesting, and one
+  template formats to at most a million characters (past that it falls back). A catalogue, or an
+  object in the kept arguments of an unknown message, in which more than 16 keys share one hash
+  code is refused: real keys almost never share one, and maps of keys that do cost time out of
+  proportion to their size.
 - On the JVM a registry looks a family's file for a language up on the classpath once and keeps
   it; of the languages without a file it remembers the latest 4096. Narrow a language from a
   request header to the languages you support before you show messages in it, or each new tag

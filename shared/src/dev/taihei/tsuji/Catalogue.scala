@@ -93,23 +93,31 @@ object Catalogue:
         case Some(Json.Str(tag)) => Language.parse(tag).left.map(CatalogueProblem(_))
         case _ => Left(CatalogueProblem("a catalogue needs \"language\", a language tag"))
       entries  <- obj.get("messages") match
-        case Some(Json.Obj(fields)) if fields.size <= MaxMessages => Right(fields)
-        case Some(Json.Obj(_))                                    =>
+        case Some(Json.Obj(fields)) if fields.size > MaxMessages             =>
           Left(CatalogueProblem(s"a catalogue holds at most $MaxMessages messages", Some(language)))
-        case _                                                    =>
+        case Some(Json.Obj(fields)) if SharedHashes.exceed(fields.map(_._1)) =>
+          Left(CatalogueProblem(
+            s"more than ${SharedHashes.Max} keys of a catalogue share a hash code",
+            Some(language),
+          ))
+        case Some(Json.Obj(fields))                                          => Right(fields)
+        case _                                                               =>
           Left(CatalogueProblem("a catalogue needs \"messages\", an object", Some(language)))
     yield
       val messages = Map.newBuilder[MessageKey, String]
-      val seen     = scala.collection.mutable.HashSet.empty[String]
+      // An immutable set: its cost per key does not depend on how many keys share low bits of
+      // their hash codes, as a hash table's does.
+      var seen     = Set.empty[String]
       val problems = List.newBuilder[CatalogueProblem]
       entries.foreach: (k, v) =>
         MessageKey.parse(k) match
           case Left(e)    => problems += CatalogueProblem(e, Some(language))
           case Right(key) =>
-            if !seen.add(k) then
+            if seen.contains(k) then
               problems +=
                 CatalogueProblem("given twice; the first is kept", Some(language), Some(key))
             else
+              seen += k
               v match
                 case Json.Str(t) if t.length <= MessageFormat2.MaxTemplateLength =>
                   messages += key -> t
@@ -162,3 +170,26 @@ private[tsuji] object JsonDepth:
   end exceeds
 
 end JsonDepth
+
+// Whether more keys than a limit share one hash code, found by sorting the hash codes, without
+// hashing a key into a map or a set. Building a map or a set, or comparing two JSON objects, costs
+// time quadratic in the number of keys that share a hash code; keys that come from input the
+// application did not compile are checked with this before any of that happens. Real keys share
+// one rarely: among 100000 of them, two or three at most.
+private[tsuji] object SharedHashes:
+
+  val Max = 16
+
+  def exceed(keys: Iterable[String]): Boolean =
+    val hashes  = keys.iterator.map(_.hashCode).toArray
+    scala.util.Sorting.quickSort(hashes)
+    var run     = 1
+    var i       = 1
+    var exceeds = false
+    while i < hashes.length && !exceeds do
+      run = if hashes(i) == hashes(i - 1) then run + 1 else 1
+      if run > Max then exceeds = true
+      i += 1
+    exceeds
+
+end SharedHashes

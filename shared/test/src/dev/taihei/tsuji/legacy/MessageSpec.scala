@@ -7,7 +7,8 @@ import zio.test.*
 
 import dev.taihei.tsuji.Language
 
-// The 4.x Message, kept as legacy.Message until 6.0.0, behaves as it did in 4.x.
+// The 4.x Message, kept as legacy.Message until 6.0.0, behaves as it does in 4.0.x, its JSON
+// codec included.
 object MessageSpec extends ZIOSpecDefault:
 
   def spec = suite("MessageSpec")(
@@ -364,6 +365,107 @@ object MessageSpec extends ZIOSpecDefault:
           msg.translationTemplates.size == 1,
           msg.translationTemplates.contains(Language.English),
         )
+      },
+    ),
+    suite("Reading a message from JSON")(
+      test("a message at every bound reads and writes back") {
+        val long      = "x" * 65536
+        val templates = (1 until 1000).map(i => Language(f"en-x-t$i%04d") -> s"Hello $i").toMap +
+          (Language.English -> long)
+        val named     = (1 until 500).map(i => s"n$i" -> "v").toMap + (long -> long)
+        val msg       = Message(List.fill(500)(long), named, templates)
+        assertTrue(
+          msg.translationTemplates.size == 1000,
+          msg.args.size + msg.namedArgs.size == 1000,
+          msg.toJson.fromJson[Message] == Right(msg),
+        )
+      },
+      test("more than 1000 templates are refused") {
+        val templates = (0 to 1000).map(i => Language(f"en-x-t$i%04d") -> "x").toMap
+        val result    = Message(Nil, Map.empty, templates).toJson.fromJson[Message]
+        assertTrue(templates.size == 1001, result.left.exists(_.contains("1000 templates")))
+      },
+      test("a template longer than 65536 characters is refused") {
+        val ok  = Message.of("x" * 65536).toJson.fromJson[Message]
+        val bad = Message.of("x" * 65537).toJson.fromJson[Message]
+        assertTrue(ok.isRight, bad.left.exists(_.contains("template is longer")))
+      },
+      test("more than 1000 arguments, positional and named together, are refused") {
+        val positional = Message(List.fill(1001)("a"), Map.empty, Map(Language.English -> "x"))
+        val mixed      = Message(
+          List.fill(600)("a"),
+          (0 until 401).map(i => s"n$i" -> "v").toMap,
+          Map(Language.English -> "x"),
+        )
+        assertTrue(
+          positional.toJson.fromJson[Message].left.exists(_.contains("1000 arguments")),
+          mixed.toJson.fromJson[Message].left.exists(_.contains("1000 arguments")),
+        )
+      },
+      test("an argument longer than 65536 characters is refused") {
+        val positional = Message(List("a" * 65537), Map.empty, Map(Language.English -> "x"))
+        val named      = Message(Nil, Map("v" -> "a" * 65537), Map(Language.English -> "x"))
+        assertTrue(
+          positional.toJson.fromJson[Message].left.exists(_.contains("argument is longer")),
+          named.toJson.fromJson[Message].left.exists(_.contains("argument is longer")),
+        )
+      },
+      test("an argument name longer than 65536 characters is refused") {
+        val msg = Message(Nil, Map("n" * 65537 -> "v"), Map(Language.English -> "x"))
+        assertTrue(msg.toJson.fromJson[Message].left.exists(_.contains("argument name is longer")))
+      },
+      // The timeouts below fire on the JVM only: Scala.js decodes synchronously on its one thread,
+      // so there a regression shows as a run that does not finish rather than a failure.
+      test("many argument names with one hash are counted before they are hashed") {
+        // "Aa" and "BB" have the same hashCode, so every name built from them shares one.
+        val names = (0 until (1 << 17)).map(i =>
+          (0 until 17).map(b => if (i >> b & 1) == 1 then "Aa" else "BB").mkString
+        )
+        val json  = names.map(n => s""""$n":"v"""").mkString(
+          """{"args":[],"namedArgs":{""",
+          ",",
+          """},"translationTemplates":{"en":"x"}}""",
+        )
+        assertTrue(
+          names.map(_.hashCode).distinct.size == 1,
+          json.fromJson[Message].left.exists(_.contains("1000 arguments")),
+        )
+      } @@ TestAspect.timeout(zio.Duration.fromSeconds(15)),
+      test("many template languages with one hash are counted before they are hashed") {
+        // "an" and "c0" have the same hashCode; these private-use tags are well formed.
+        val tags = (0 until (1 << 16)).map(i =>
+          "en-x-" + (0 until 4).map(sub =>
+            (0 until 4).map(b => if (i >> (sub * 4 + b) & 1) == 1 then "an" else "c0").mkString
+          ).mkString("-")
+        )
+        val json = tags.map(t => s""""$t":"x"""").mkString(
+          """{"args":[],"translationTemplates":{""",
+          ",",
+          "}}",
+        )
+        assertTrue(
+          tags.map(_.hashCode).distinct.size == 1,
+          Language.parse(tags.head).isRight,
+          json.fromJson[Message].left.exists(_.contains("1000 templates")),
+        )
+      } @@ TestAspect.timeout(zio.Duration.fromSeconds(15)),
+      test("reading keeps the 4.0.1 shape: defaults, built-in names, duplicate keys") {
+        val noNamed   = """{"args":["a"],"translationTemplates":{"English":"x {$0}","nl":"y"}}"""
+        val duplicate = """{"args":[],"translationTemplates":{"en":"first","English":"last"}}"""
+        val badKey    = """{"args":[],"translationTemplates":{"not a tag!":"x"}}"""
+        assertTrue(
+          noNamed.fromJson[Message] ==
+          Right(Message(List("a"), Map.empty, Map(Language.English -> "x {$0}", Language.Dutch -> "y"))),
+          duplicate.fromJson[Message].map(_.translationTemplates) == Right(Map(Language.English -> "last")),
+          badKey.fromJson[Message].left.exists(e => e.contains("not a language") && !e.contains("not a tag")),
+        )
+      },
+      test("the largest message that reads shows its template instead of a text past the limit") {
+        val template = "{$0}" * 16384
+        val json     =
+          s"""{"args":["${"A" * 65536}"],"namedArgs":{},"translationTemplates":{"en":"$template"}}"""
+        val shown    = json.fromJson[Message].map(_.translate(Language.English))
+        assertTrue(template.length == 65536, shown == Right(template))
       },
     ),
   )
