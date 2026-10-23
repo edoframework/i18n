@@ -15,7 +15,7 @@ SOURCE_DIRS = shared jvm js tools tsuji
 # The build definition decides which modules are published: a stray .mill file anywhere in the
 # tree adds one. So the guard covers it too, and every publishing step checks that exactly the
 # modules below are published.
-BUILD_FILES = '*.mill' mill-build .mill-version .mill-jvm-opts ':(exclude)out'
+BUILD_FILES = '*.mill' '*.mill.yaml' mill-build .mill-version .mill-jvm-opts .config ':(exclude)out'
 STRAY_GUARD = STRAY=$$(git status --porcelain --ignored --untracked-files=all -- $(SOURCE_DIRS) $(BUILD_FILES)); \
 	HIDDEN=$$(git ls-files -v -- $(SOURCE_DIRS) | grep -E '^[a-zS]' || true); \
 	if [ -n "$$STRAY$$HIDDEN" ]; then echo "[ERROR] files git does not track, or hides changes of, would be published:"; echo "$$STRAY$$HIDDEN"; exit 1; fi
@@ -160,7 +160,7 @@ release-preflight:
 #
 # Publishing is atomic with the tag: the tag is created locally, the artifacts are published with
 # the clean version it gives, and only then do you push main and the tag. A failed publish leaves
-# nothing public: make release-abort, fix the cause, retry the same version.
+# nothing public: make release-abort, fix the cause, then release-prepare the same version again.
 # ---------------------------------------------------------------------------
 
 # release-finalize publishes the commit release-prepare validated, and refuses any other HEAD.
@@ -338,12 +338,15 @@ release-finalize:
 		echo "[ERROR] Release notes not found: $$NOTES"; exit 1; \
 	fi; \
 	echo "[OK] Found release notes: $$NOTES"; \
-	git add "$$NOTES"; \
-	if ! git diff --cached --quiet; then \
-		git commit -m "Add release notes for version $$NEW"; \
-		echo "[OK] Committed release notes"; \
-	else \
-		echo "[WARN] Nothing to commit - release notes may already be committed"; \
+	if [ -n "$$(git status --porcelain | grep -v '^??')" ]; then \
+		echo "[ERROR] Changes besides the notes, staged or not, that release-prepare did not validate:"; \
+		git status --short | grep -v '^??'; exit 1; \
+	fi; \
+	git add -- "$$NOTES"; \
+	git commit -q -m "Add release notes for version $$NEW" -- "$$NOTES"; \
+	echo "[OK] Committed release notes"; \
+	if [ "$$(git rev-parse HEAD~1)" != "$$PREPARED" ] || [ "$$(git diff --name-only "$$PREPARED" HEAD)" != "$$NOTES" ]; then \
+		echo "[ERROR] the release commit is not the prepared commit plus $$NOTES: make release-abort"; exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain | grep -v '^??')" ]; then \
 		echo "[ERROR] Uncommitted changes besides the notes: v$$NEW would publish as a SNAPSHOT"; \
@@ -370,7 +373,7 @@ release-abort:
 		if ! [[ "$$NEW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then echo "[ERROR] Not a version: $$NEW"; exit 1; fi; \
 		git tag -d "v$$NEW" 2>/dev/null || true; \
 		if [ "$$(git log -1 --pretty=%s)" = "Add release notes for version $$NEW" ]; then \
-			git reset --soft HEAD~1; \
+			git reset -q HEAD~1; \
 			echo "[OK] Reverted local release-notes commit"; \
 		fi; \
 		NOTES="RELEASE_$${NEW//./_}.md"; \
