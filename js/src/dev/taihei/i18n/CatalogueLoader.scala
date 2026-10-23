@@ -44,17 +44,20 @@ object CatalogueLoader:
             .asInstanceOf[js.Promise[js.Dynamic]]
             .toFuture
             .flatMap: response =>
-              // A declared length over the limit is refused before the body is read; a body
-              // without one is still held to Catalogue.parse's limit after it is read.
+              // A declared length over the limit is refused before the body is read. The
+              // declared length is what travels, which a compressed body exceeds once decoded,
+              // so the body is also counted as it is read, and dropped past the limit.
               val length   = response.headers.get("content-length")
               val declared =
                 if js.isUndefined(length) || length == null then None
                 else String.valueOf(length).trim.toLongOption
               if !response.ok.asInstanceOf[Boolean] then
+                cancel(response)
                 Future.failed(new IllegalStateException(s"HTTP ${response.status}"))
               else if declared.exists(_ > MaxBytes) then
+                cancel(response)
                 Future.failed(new IllegalStateException(s"larger than $MaxBytes bytes"))
-              else response.text().asInstanceOf[js.Promise[String]].toFuture
+              else readBounded(response)
         end if
       catch case NonFatal(e) => Future.failed(e)
     fetched
@@ -68,5 +71,51 @@ object CatalogueLoader:
         case NonFatal(e) =>
           problem(s"cannot fetch ${Printable(url)}: ${Printable(String.valueOf(e.getMessage))}")
   end load
+
+  // Lets go of a body that will not be read, so that its connection can close.
+  private def cancel(response: js.Dynamic): Unit =
+    try
+      val body = response.body
+      if !js.isUndefined(body) && body != null then
+        body.cancel()
+        ()
+    catch case NonFatal(_) => ()
+
+  // The body as text, read chunk by chunk and given up as soon as it passes MaxBytes.
+  private def readBounded(
+    response: js.Dynamic
+  )(
+    using ExecutionContext
+  ): Future[String] =
+    val body = response.body
+    if js.isUndefined(body) || body == null then
+      response.text().asInstanceOf[js.Promise[String]].toFuture
+    else
+      val reader                 = body.getReader()
+      val decoder                = js.Dynamic.newInstance(js.Dynamic.global.TextDecoder)("utf-8")
+      val out                    = new StringBuilder
+      var total                  = 0.0
+      def next(): Future[String] =
+        reader
+          .read()
+          .asInstanceOf[js.Promise[js.Dynamic]]
+          .toFuture
+          .flatMap: chunk =>
+            if chunk.done.asInstanceOf[Boolean] then
+              out ++= decoder.decode().asInstanceOf[String]
+              Future.successful(out.result())
+            else
+              total += chunk.value.length.asInstanceOf[Double]
+              if total > MaxBytes then
+                reader.cancel()
+                Future.failed(new IllegalStateException(s"larger than $MaxBytes bytes"))
+              else
+                out ++=
+                  decoder.decode(chunk.value, js.Dynamic.literal(stream = true)).asInstanceOf[String]
+                next()
+      next()
+    end if
+
+  end readBounded
 
 end CatalogueLoader

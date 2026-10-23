@@ -53,6 +53,18 @@ object CatalogueLoaderSpec extends ZIOSpecDefault:
         min.localize(Language.Dutch) == "lengte moet minimaal 8 zijn",
       )
     },
+    test("a body larger than the limit is dropped while it is read, also without a declared length") {
+      import scala.scalajs.js
+      val c        = Catalogues(Seq(Orders))
+      val original = js.Dynamic.global.fetch
+      val big      = "x" * (Catalogue.MaxLength * 4 + 10)
+      js.Dynamic.global.updateDynamic("fetch")((_: String) =>
+        js.Promise.resolve[js.Dynamic](js.Dynamic.newInstance(js.Dynamic.global.Response)(big))
+      )
+      load(c, German, "https://example.invalid/de.json")
+        .map(problems => assertTrue(problems.exists(_.message.contains("larger than"))))
+        .ensuring(zio.ZIO.succeed(js.Dynamic.global.updateDynamic("fetch")(original)))
+    },
     test("a file in another language, a file that is no catalogue, and a failed fetch are problems") {
       val c = Catalogues(Seq(Orders))
       for
@@ -66,6 +78,6 @@ object CatalogueLoaderSpec extends ZIOSpecDefault:
         c.languages.isEmpty,
       )
     },
-  )
+  ) @@ TestAspect.sequential // one test replaces the global fetch for a while
 
 end CatalogueLoaderSpec
