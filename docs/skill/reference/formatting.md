@@ -1,6 +1,6 @@
 # formatting - platforms, cross-platform rules, build
 
-Locale-aware formatting runs through internal platform objects (`private[i18n]` since 5.0.0): you
+Locale-aware formatting runs through internal platform objects (`private[tsuji]` since 5.0.0): you
 format through templates (`:number`, `:integer`, `:datetime`, `:date`, `:time`) in messages or
 `MessageFormat2.format`.
 
@@ -23,14 +23,14 @@ format through templates (`:number`, `:integer`, `:datetime`, `:date`, `:time`) 
 ## Build and layout
 
 ```
-shared/src/dev/taihei/i18n/          Language, MessageFamily, Message/Text, MessageArg, Catalogue(s), MessageFormat2, CoreMessages, the macro
-shared/src/dev/taihei/i18n/legacy/   the 4.x Message, deprecated until 6.0.0
-shared/resources/META-INF/taihei-i18n/   CoreMessages' Dutch and French catalogues
+shared/src/dev/taihei/tsuji/          Language, MessageFamily, Message/Text, MessageArg, Catalogue(s), MessageFormat2, CoreMessages, the macro
+shared/src/dev/taihei/tsuji/legacy/   the 4.x Message, deprecated until 6.0.0
+shared/resources/META-INF/taihei-tsuji/   CoreMessages' Dutch and French catalogues
 jvm/src, js/src                      platform formatters; ClasspathCatalogues (JVM), CatalogueLoader (JS)
-tools/src                            taihei-i18n-tools: ExportCatalogues
+tools/src                            taihei-tsuji-tools: ExportCatalogues
 ```
 
 - `make validate`: scalafix, scalafmt, compile, tests on the JVM and Node, MiMa against the newest
   release of the current major line.
 - Released from the Makefile (`make release-prepare TYPE=...`, `make release-finalize`), the
-  version from the git tag; one release publishes `taihei-i18n` and `taihei-i18n-tools`.
+  version from the git tag; one release publishes `taihei-tsuji` and `taihei-tsuji-tools`.

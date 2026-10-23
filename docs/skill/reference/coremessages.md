@@ -1,8 +1,8 @@
 # coremessages - the pre-built message families
 
-Package `dev.taihei.i18n`. `CoreMessages` holds families of common messages, English as the source
+Package `dev.taihei.tsuji`. `CoreMessages` holds families of common messages, English as the source
 language, Dutch and French as catalogue files in the jar
-(`META-INF/taihei-i18n/taihei.<group>/<nl|fr>.json`). On Scala.js those files reach the browser
+(`META-INF/taihei-tsuji/taihei.<group>/<nl|fr>.json`). On Scala.js those files reach the browser
 through the export. `CoreMessages.families` lists all of them.
 
 ```scala

@@ -1,23 +1,25 @@
 ---
-name: taihei-i18n
-description: How to use Taihei Framework i18n 5.x (dev.taihei::taihei-i18n, formerly edo-i18n and genius-i18n), the type-safe internationalization library for Scala 3 on the JVM and Scala.js. Apply when writing or reviewing Scala that uses dev.taihei.i18n.* - message families (MessageFamily, message[...]), Message, Text, Displayable, MessageArg, Catalogue and Catalogues, the fallback chain, catalogue files on the classpath or fetched with CatalogueLoader, Catalogues.verify in tests, the taihei-i18n-tools export, the JSON wire format, ICU MessageFormat 2.0 templates, CoreMessages, Language, or migrating from the 4.x Message (dev.taihei.i18n.legacy.Message).
+name: taihei-tsuji
+description: How to use Taihei Tsuji 5.x (dev.taihei::taihei-tsuji, formerly taihei-i18n, edo-i18n and genius-i18n), the type-safe internationalization library for Scala 3 on the JVM and Scala.js. Apply when writing or reviewing Scala that uses dev.taihei.tsuji.* - message families (MessageFamily, message[...]), Message, Text, Displayable, MessageArg, Catalogue and Catalogues, the fallback chain, catalogue files on the classpath or fetched with CatalogueLoader, Catalogues.verify in tests, the taihei-tsuji-tools export, the JSON wire format, ICU MessageFormat 2.0 templates, CoreMessages, Language, or migrating from taihei-i18n 4.x (dev.taihei.i18n) and its Message (now dev.taihei.tsuji.legacy.Message).
 ---
 
-# Taihei Framework i18n 5.x
+# Taihei Tsuji 5.x
 
 A type-safe i18n library for Scala 3, cross-compiled for the JVM and Scala.js. Messages are
 defined in Scala as typed **message families**, checked by a macro when the code compiles; their
 translations live inline or in per-language **catalogue files**; a `Message` is only a key and
 typed arguments, so only the reader's language travels and is loaded.
 
-Package `dev.taihei.i18n`. Artifacts on Maven Central: `dev.taihei::taihei-i18n` (`taihei-i18n_3`
-on the JVM, `taihei-i18n_sjs1_3` on Scala.js) and the JVM-only `dev.taihei::taihei-i18n-tools`,
-version 5.0.0, Scala 3.9 (LTS), Apache 2.0. Source: <https://github.com/taiheiframework/i18n>.
-4.0.x gets security fixes for 12 months after 5.0.0; use 4.0.1 or later of 4.x.
+Package `dev.taihei.tsuji`. Artifacts on Maven Central: `dev.taihei::taihei-tsuji` (`taihei-tsuji_3`
+on the JVM, `taihei-tsuji_sjs1_3` on Scala.js) and the JVM-only `dev.taihei::taihei-tsuji-tools`,
+version 5.0.0, Scala 3.9 (LTS), Apache 2.0. Source: <https://github.com/taiheiframework/tsuji>.
+Up to 4.x the library was `dev.taihei::taihei-i18n`, package `dev.taihei.i18n`; that line stays
+under its old name on branch `4.0.x` and gets security fixes for 12 months after Taihei Tsuji
+5.0.0. Use the newest taihei-i18n 4.0.x on the 4.x line.
 
 ## When to use this skill
 
-Whenever Scala code imports `dev.taihei.i18n.*`: defining or showing messages, adding
+Whenever Scala code imports `dev.taihei.tsuji.*`: defining or showing messages, adding
 translations, loading catalogues in a browser, sending messages over JSON, testing catalogues,
 formatting numbers and dates per locale, or moving code from 4.x.
 
@@ -25,8 +27,8 @@ formatting numbers and dates per locale, or moving code from 4.x.
 
 ```scala
 import java.time.LocalDate
-import dev.taihei.i18n.*
-import dev.taihei.i18n.Language.*
+import dev.taihei.tsuji.*
+import dev.taihei.tsuji.Language.*
 
 object Orders extends MessageFamily("order"):          // key prefix, English source
   val cancelled = message("Your order was cancelled", Dutch -> "Uw bestelling werd geannuleerd")
@@ -74,7 +76,7 @@ Orders.shipped(count = 3, on = today).localize(Dutch)  // falls back to English,
 - Completeness of files is checked by `Catalogues.verify` (or `ClasspathCatalogues.verify`) in
   tests, not by the compiler. Mark the languages that must be complete as `required`.
 - The functions of a user `MessageArg.as` type are checked by `verify`, not the macro.
-- `legacy.Message` and `dev.taihei.i18n.Message` share a simple name: an explicit
-  `import dev.taihei.i18n.legacy.Message` wins over `dev.taihei.i18n.*`.
+- `legacy.Message` and `dev.taihei.tsuji.Message` share a simple name: an explicit
+  `import dev.taihei.tsuji.legacy.Message` wins over `dev.taihei.tsuji.*`.
 - `shared/` compiles on Scala.js too: no JVM-only API there.
 - French plural `one` is 0 and 1; English and Dutch only 1.

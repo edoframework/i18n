@@ -1,6 +1,6 @@
 # catalogues - Catalogue, Catalogues, loading, verify, export
 
-Package `dev.taihei.i18n`; the export is in `taihei-i18n-tools`.
+Package `dev.taihei.tsuji`; the export is in `taihei-tsuji-tools`.
 
 ## Catalogue files
 
@@ -44,7 +44,7 @@ Orders.cancelled.localize(Language("lb-LU"))
 
 ## JVM: the classpath
 
-Files at `META-INF/taihei-i18n/<prefix>/<tag>.json` (canonical tag, `zh-Hant.json`), read with the
+Files at `META-INF/taihei-tsuji/<prefix>/<tag>.json` (canonical tag, `zh-Hant.json`), read with the
 family's class loader the first time a language is needed, at most 16 MB, UTF-8 only. A file
 found is kept; of the misses the latest 4096 are remembered. Narrow a request header's language
 to the supported ones. Keys of
@@ -75,10 +75,10 @@ user argument types included; keys without a definition; every required language
 or file); duplicate prefixes and keys; a language given twice inline; an inline translation in the
 source language.
 
-## Export: taihei-i18n-tools
+## Export: taihei-tsuji-tools
 
 ```
-dev.taihei.i18n.tools.ExportCatalogues --out <dir> [--scan <package>]... [--family <object>]...
+dev.taihei.tsuji.tools.ExportCatalogues --out <dir> [--scan <package>]... [--family <object>]...
 ```
 
 Runs on the JVM, in a module whose classpath holds the families (for a cross-built app, the

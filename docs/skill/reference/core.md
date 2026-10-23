@@ -1,6 +1,6 @@
 # core - Language, message families, Message and Text
 
-Package `dev.taihei.i18n`.
+Package `dev.taihei.tsuji`.
 
 ## Language
 
@@ -9,8 +9,8 @@ built-ins are `val`s in the companion; any other language is `Language(tag)`.
 (Until 2.0.0 it was a closed enum of the three built-ins.)
 
 ```scala
-import dev.taihei.i18n.Language
-import dev.taihei.i18n.Language.*
+import dev.taihei.tsuji.Language
+import dev.taihei.tsuji.Language.*
 
 English                    // the default; also Dutch, French
 Language("de")             // any valid tag
@@ -53,8 +53,8 @@ its name (`"English"`), any other language by its tag (`"de"`); both forms are r
 
 ```scala
 import java.time.LocalDate
-import dev.taihei.i18n.*
-import dev.taihei.i18n.Language.*
+import dev.taihei.tsuji.*
+import dev.taihei.tsuji.Language.*
 
 object Orders extends MessageFamily("order"):              // prefix; source language English
   val cancelled = message("Your order was cancelled", Dutch -> "Uw bestelling werd geannuleerd")

@@ -1,6 +1,6 @@
 # messageformat2 - ICU MessageFormat 2.0
 
-Package `dev.taihei.i18n`. The template language of every message, and a formatter you can call
+Package `dev.taihei.tsuji`. The template language of every message, and a formatter you can call
 on a raw template.
 
 ```scala
@@ -8,7 +8,7 @@ object MessageFormat2:
   def format(template: String, args: Map[String, Any] = Map.empty, locale: String = "en"): String
   def validate(template: String): List[TemplateError]
 
-final case class TemplateError private[i18n] (position: Int, message: String)  // read, not built
+final case class TemplateError private[tsuji] (position: Int, message: String)  // read, not built
 ```
 
 - `format` never throws; a variable without a value shows as `$name`; `locale` is a BCP 47 tag. A

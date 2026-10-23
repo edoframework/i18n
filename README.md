@@ -1,11 +1,13 @@
-# Taihei Framework i18n
+# Taihei Tsuji
 
-A type-safe internationalization library for Scala 3: languages, typed message families
+The tsuji (通詞) were the official interpreters of Nagasaki in the Edo period. Taihei Tsuji is a
+type-safe internationalization library for Scala 3: languages, typed message families
 checked when the code compiles, per-language catalogues, ICU MessageFormat 2.0, and
 locale-aware number and date formatting. Cross-compiled for the **JVM and Scala.js**.
 
 Part of the [Taihei Framework](https://taihei.dev), the open-source Scala 3
-libraries from Innovenso. The package is `dev.taihei.i18n`.
+libraries from Innovenso. The package is `dev.taihei.tsuji`. Up to 4.x the library was called
+taihei-i18n: see [Coming from taihei-i18n 4.x](#coming-from-taihei-i18n-4x).
 
 ## Modules
 
@@ -13,23 +15,25 @@ Published on Maven Central under `dev.taihei`:
 
 | Artifact                | Platform | Purpose                                                       |
 | ----------------------- | -------- | ------------------------------------------------------------- |
-| `taihei-i18n`           | JVM      | The library on `java.time` / `java.text`.                     |
-| `taihei-i18n_sjs1`      | Scala.js | The same API, formatting via the browser `Intl` API.          |
-| `taihei-i18n-tools`     | JVM      | A program that exports catalogue files for translators and browsers. |
+| `taihei-tsuji`          | JVM      | The library on `java.time` / `java.text`.                     |
+| `taihei-tsuji_sjs1`     | Scala.js | The same API, formatting via the browser `Intl` API.          |
+| `taihei-tsuji-tools`    | JVM      | A program that exports catalogue files for translators and browsers. |
 
 ```scala
-mvn"dev.taihei::taihei-i18n:5.0.0"          // Mill, JVM
-mvn"dev.taihei::taihei-i18n::5.0.0"         // Mill, Scala.js
-mvn"dev.taihei::taihei-i18n-tools:5.0.0"    // Mill, the export program
-"dev.taihei" %%% "taihei-i18n" % "5.0.0"      // sbt
-"dev.taihei" %% "taihei-i18n-tools" % "5.0.0" // sbt
+mvn"dev.taihei::taihei-tsuji:5.0.0"          // Mill, JVM
+mvn"dev.taihei::taihei-tsuji::5.0.0"         // Mill, Scala.js
+mvn"dev.taihei::taihei-tsuji-tools:5.0.0"    // Mill, the export program
+"dev.taihei" %%% "taihei-tsuji" % "5.0.0"      // sbt
+"dev.taihei" %% "taihei-tsuji-tools" % "5.0.0" // sbt
 ```
 
 The `shared/` sources compile on both platforms; `jvm/` and `js/` hold only the
 platform-specific formatters and the loading of catalogues.
 
-5.0.0 is a major release: see [Migrating from 4.x](#migrating-from-4x). 4.0.x receives
-security fixes for 12 months after the release of 5.0.0.
+5.0.0 is the first release under the name Taihei Tsuji, and a major release: see
+[Coming from taihei-i18n 4.x](#coming-from-taihei-i18n-4x). The 4.x line keeps its name,
+`dev.taihei::taihei-i18n`, and lives on branch `4.0.x` of this repository: taihei-i18n 4.0.x
+receives security fixes for 12 months after the release of Taihei Tsuji 5.0.0.
 
 ## Stack
 
@@ -65,7 +69,7 @@ git push origin main && git push origin vX.Y.Z # only after the publish succeede
 make publish-dry-run                           # the signed bundle, written to out/
 ```
 
-One release publishes `taihei-i18n` (JVM and Scala.js) and `taihei-i18n-tools` with the same
+One release publishes `taihei-tsuji` (JVM and Scala.js) and `taihei-tsuji-tools` with the same
 version. Publishing reads the Central Portal user token and the release key from
 `~/.edo-release.env` or the environment (`MILL_SONATYPE_USERNAME`,
 `MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`, `MILL_PGP_PASSPHRASE`).
@@ -75,29 +79,12 @@ Releases are signed by the Taihei Framework release key, fingerprint
 `Edo Framework Releases <releases@edoframework.com>`. The fingerprint is what to verify. The
 key is published on keyserver.ubuntu.com and keys.openpgp.org.
 
-## Coming from edo-i18n 3.0.0 or genius-i18n
-
-4.0.x has the API of `com.edoframework::edo-i18n:3.0.0` under its new name:
-
-- the dependency is `dev.taihei::taihei-i18n`;
-- the package is `dev.taihei.i18n`: replace `com.edoframework.i18n` in your imports.
-
-Coming from `fish.genius::genius-i18n:2.0.0`, replace `genius.i18n` instead. Move to 4.0.1
-first, then to 5.0.0 as [below](#migrating-from-4x). 3.0.0 also
-moved to Scala 3.9 (LTS), so your build needs Scala 3.9 or later, to `zio-json` 1.1
-instead of 0.9, and to the Apache License 2.0.
-
-Do not stay on 2.0.0, 3.0.0 or 4.0.0. Parsing a long language tag can overflow the stack in
-them; 4.0.1 fixes it (advisory
-[GHSA-45w8-x6c8-w4hg](https://github.com/taiheiframework/i18n/security/advisories/GHSA-45w8-x6c8-w4hg)).
-There is no patch under the old coordinates.
-
 ## Quick start
 
 ```scala
 import java.time.LocalDate
-import dev.taihei.i18n.*
-import dev.taihei.i18n.Language.*
+import dev.taihei.tsuji.*
+import dev.taihei.tsuji.Language.*
 
 object Orders extends MessageFamily("order"):
   val cancelled = message("Your order was cancelled", Dutch -> "Uw bestelling werd geannuleerd")
@@ -186,8 +173,8 @@ never throws.
 ### On the JVM
 
 A library or application ships its catalogues as resources:
-`META-INF/taihei-i18n/<family prefix>/<language tag>.json`, for example
-`META-INF/taihei-i18n/order/de.json`. The registry reads a family's file for a language the first
+`META-INF/taihei-tsuji/<family prefix>/<language tag>.json`, for example
+`META-INF/taihei-tsuji/order/de.json`. The registry reads a family's file for a language the first
 time that language is needed, and keeps it. Nothing needs to be configured.
 
 ### In Scala.js
@@ -221,7 +208,7 @@ does not.
 
 ### Exporting catalogues
 
-`taihei-i18n-tools` has one program, `dev.taihei.i18n.tools.ExportCatalogues`. It finds the
+`taihei-tsuji-tools` has one program, `dev.taihei.tsuji.tools.ExportCatalogues`. It finds the
 families on the application's classpath, those of libraries such as `CoreMessages` included, and
 writes one merged file per language: `<out>/<tag>.json`. The file of the source language is the
 one to hand to translators; the others hold the catalogue files on the classpath over the inline
@@ -231,15 +218,15 @@ code cannot be exported). It is an ordinary run step, not a build plugin:
 
 ```scala
 // Mill: a module with the tools on its run classpath
-def runMvnDeps = Seq(mvn"dev.taihei::taihei-i18n-tools:5.0.0")
-// ./mill app.runMain dev.taihei.i18n.tools.ExportCatalogues --out out/i18n --scan com.acme --scan dev.taihei.i18n
+def runMvnDeps = Seq(mvn"dev.taihei::taihei-tsuji-tools:5.0.0")
+// ./mill app.runMain dev.taihei.tsuji.tools.ExportCatalogues --out out/tsuji --scan com.acme --scan dev.taihei.tsuji
 ```
 
 ```scala
 // sbt: run it forked, so that its classpath is the application's
-libraryDependencies += "dev.taihei" %% "taihei-i18n-tools" % "5.0.0"
+libraryDependencies += "dev.taihei" %% "taihei-tsuji-tools" % "5.0.0"
 Compile / run / fork := true
-// sbt "runMain dev.taihei.i18n.tools.ExportCatalogues --out target/i18n --scan com.acme --scan dev.taihei.i18n"
+// sbt "runMain dev.taihei.tsuji.tools.ExportCatalogues --out target/tsuji --scan com.acme --scan dev.taihei.tsuji"
 ```
 
 `--scan <package>` finds every family object in a package; `--family <object>` names one.
@@ -298,7 +285,7 @@ Versioning rules for keys, on the wire:
 - Adding an argument means a new key, unless the new argument is an `Option`: a reader that does
   not have it sees `None`.
 - Removing or retyping an argument means a new key.
-- The envelope above is format 1 of taihei-i18n 5.x. A change to it would be a major release.
+- The envelope above is format 1 of taihei-tsuji 5.x. A change to it would be a major release.
   There is no version field per message.
 
 And in Scala, for a family that a library publishes: a definition's arguments are its API. Code
@@ -342,22 +329,43 @@ CoreMessages.Validation.formatErrors(Map("email" -> List(CoreMessages.Validation
 
 In Scala.js the Dutch and French files reach the browser through the export, like your own.
 
-## Migrating from 4.x
+## Coming from taihei-i18n 4.x
 
-5.0.0 replaces the 4.x `Message`, which carried every translation, with typed families. The 4.x
-type stays, unchanged and deprecated, as `dev.taihei.i18n.legacy.Message` until 6.0.0. Moving to
-5.0.0 starts with a change of imports:
+Taihei Tsuji 5.0.0 is the successor of `dev.taihei::taihei-i18n` 4.x under a new name. The
+coordinates and the package change with it:
+
+- the dependency is `dev.taihei::taihei-tsuji` (and `dev.taihei::taihei-tsuji-tools`);
+- the package is `dev.taihei.tsuji`, where it was `dev.taihei.i18n`;
+- a library ships its catalogue files under `META-INF/taihei-tsuji/`.
+
+The JSON of a message does not change, and neither do the keys of `CoreMessages`: a taihei-i18n
+4.x peer and a Taihei Tsuji 5 peer exchange messages as described [below](#on-the-wire).
+
+There is no taihei-i18n 5.0.0 and no relocation from the old coordinates. The two lines are
+different artifacts in different packages, so they can be on one classpath side by side: a
+library built against taihei-i18n 4.x, such as taihei-lorem 4.x, keeps working beside Taihei
+Tsuji 5 with its own taihei-i18n jar. Its `dev.taihei.i18n.Language` and the
+`dev.taihei.tsuji.Language` of 5.x are different types.
+
+5.0.0 also replaces the 4.x `Message`, which carried every translation, with typed families. The
+4.x type stays, unchanged and deprecated, as `dev.taihei.tsuji.legacy.Message` until 6.0.0.
+Moving to 5.0.0 starts with the new coordinates and a change of imports:
+
+```sh
+# every import of dev.taihei.i18n becomes dev.taihei.tsuji
+grep -rl 'dev\.taihei\.i18n' --include='*.scala' . | xargs sed -i 's/dev\.taihei\.i18n/dev.taihei.tsuji/g'
+```
 
 ```scala
-import dev.taihei.i18n.*
-import dev.taihei.i18n.legacy.Message   // an explicit import wins over the wildcard
+import dev.taihei.tsuji.*
+import dev.taihei.tsuji.legacy.Message   // an explicit import wins over the wildcard
 ```
 
 Code that only builds and translates 4.x messages then compiles with deprecation warnings, and
 legacy messages and new ones are shown side by side (both are `Displayable`). Code that uses
 `Message.of`, `Language.label`, `CoreMessages`, the `MessageArg` union or the MF2 internals needs
 the changes in the table below. To silence the warnings while you migrate, add
-`-Wconf:cat=deprecation&origin=dev\.taihei\.i18n\.legacy\..*:s` to the compiler options.
+`-Wconf:cat=deprecation&origin=dev\.taihei\.tsuji\.legacy\..*:s` to the compiler options.
 
 Then move the messages to families, one family at a time:
 
@@ -375,7 +383,7 @@ Then move the messages to families, one family at a time:
 | `PlatformNumberFormatter`, `PlatformDateTimeFormatter`, `PlatformLocales`, `PlatformLanguageNames` | internal now: format through a template |
 | `Language.label: legacy Message` | `Language.label: Message`, shown in any reader's language |
 | `CoreMessages.X.member(args)` | the same names, with named, typed arguments |
-| CoreMessages in Dutch and French on Scala.js, inline in 4.x | catalogue files now: export them (`--scan dev.taihei.i18n`) and load them with `CatalogueLoader`, or a browser shows English |
+| CoreMessages in Dutch and French on Scala.js, inline in 4.x | catalogue files now: export them (`--scan dev.taihei.tsuji`) and load them with `CatalogueLoader`, or a browser shows English |
 | the case class `Message(args, namedArgs, translationTemplates)`, `copy`, its fields | only on `legacy.Message` |
 | `message.nonEmpty` | `message.localize(language).nonEmpty` |
 | `given JsonCodec[Message]`, needing nothing | `JsonEncoder[Message]` as before; `JsonDecoder` and `JsonCodec[Message]` need a `given Catalogues` where they are summoned or derived |
@@ -391,18 +399,29 @@ JSON: stored or exchanged 4.x messages stay readable as legacy messages. A messa
 produces is not readable by a 4.x reader: during a rollout, upgrade the readers (the clients)
 first, or keep writing legacy messages until they have.
 
-`Language` is unchanged and binary compatible with 4.x apart from `label`, which now returns the
-new `Message`: a library built against 4.0.x that calls `label` fails with `NoSuchMethodError`.
-A library that uses `Language` but not `label`, such as taihei-lorem 4.x, keeps working with
-5.0.0 on the classpath.
+`Language` has the API of 4.x apart from `label`, which now returns the new `Message`.
 
 In Scala.js, CoreMessages' Dutch and French were inline in 4.x and are files in 5.x: a browser
 application shows them in English until it exports them and loads them like its own catalogues.
 
+## Coming from edo-i18n 3.0.0 or genius-i18n
+
+taihei-i18n 4.x has the API of `com.edoframework::edo-i18n:3.0.0` under its new name, with the
+package `dev.taihei.i18n` where it was `com.edoframework.i18n`; coming from
+`fish.genius::genius-i18n:2.0.0`, the package was `genius.i18n`. Move to the newest
+taihei-i18n 4.0.x first, then to Taihei Tsuji 5.0.0 as [above](#coming-from-taihei-i18n-4x).
+3.0.0 also moved to Scala 3.9 (LTS), so your build needs Scala 3.9 or later, to `zio-json` 1.1
+instead of 0.9, and to the Apache License 2.0.
+
+Do not stay on 2.0.0, 3.0.0 or 4.0.0. Parsing a long language tag can overflow the stack in
+them; taihei-i18n 4.0.1 fixes it (advisory
+[GHSA-45w8-x6c8-w4hg](https://github.com/taiheiframework/tsuji/security/advisories/GHSA-45w8-x6c8-w4hg)).
+There is no patch under the older coordinates.
+
 ## Testing
 
 ```scala
-import dev.taihei.i18n.*
+import dev.taihei.tsuji.*
 import zio.test.*
 
 test("messages") {
@@ -420,4 +439,6 @@ The suite runs on both platforms (`make test`); JS tests execute under Node.
 
 Apache License 2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright
 Innovenso BV. Versions up to and including 2.0.0 were published as
-`fish.genius::genius-i18n` under the MIT License and remain available under it.
+`fish.genius::genius-i18n` under the MIT License and remain available under it. The library was
+published as `fish.genius::genius-i18n` (up to 2.0.0), `com.edoframework::edo-i18n` (3.0.0),
+`dev.taihei::taihei-i18n` (4.x) and, from 5.0.0, `dev.taihei::taihei-tsuji`.

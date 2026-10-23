@@ -1,4 +1,4 @@
-Taihei Framework i18n
+Taihei Tsuji
 Copyright 2026 Innovenso BV
 
 This product is developed by Innovenso BV (https://innovenso.com) as part of
@@ -15,3 +15,10 @@ publishes it under the Apache License 2.0 from version 3.0.0 on.
 
 Version 3.0.0 was published as com.edoframework::edo-i18n, as part of the
 Edo Framework, under the Apache License 2.0.
+
+The library has been published under these names:
+
+    fish.genius::genius-i18n     up to and including 2.0.0
+    com.edoframework::edo-i18n   3.0.0
+    dev.taihei::taihei-i18n      4.x
+    dev.taihei::taihei-tsuji     from 5.0.0

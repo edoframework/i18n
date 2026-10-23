@@ -1,19 +1,33 @@
-# migration - from taihei-i18n 4.x to 5.x
+# migration - from taihei-i18n 4.x to Taihei Tsuji 5.x
+
+## Step 0: the new name
+
+Taihei Tsuji 5.0.0 is the successor of `dev.taihei::taihei-i18n` 4.x under a new name: the
+dependency becomes `dev.taihei::taihei-tsuji` (and `taihei-tsuji-tools`), the package
+`dev.taihei.i18n` becomes `dev.taihei.tsuji`, and catalogue files move from
+`META-INF/taihei-i18n/` to `META-INF/taihei-tsuji/`. The JSON of a message and the keys of
+`CoreMessages` stay the same. There is no taihei-i18n 5.0.0 and no relocation: the two lines are
+different artifacts in different packages and can share a classpath, but their `Language` types
+are different types.
+
+```sh
+grep -rl 'dev\.taihei\.i18n' --include='*.scala' . | xargs sed -i 's/dev\.taihei\.i18n/dev.taihei.tsuji/g'
+```
 
 ## Step 1: imports only
 
-The 4.x `Message` is `dev.taihei.i18n.legacy.Message` in 5.x, unchanged and deprecated, until
+The 4.x `Message` is `dev.taihei.tsuji.legacy.Message` in 5.x, unchanged and deprecated, until
 6.0.0:
 
 ```scala
-import dev.taihei.i18n.*
-import dev.taihei.i18n.legacy.Message   // explicit, so it wins over the wildcard's Message
+import dev.taihei.tsuji.*
+import dev.taihei.tsuji.legacy.Message   // explicit, so it wins over the wildcard's Message
 ```
 
 Code that only builds and translates 4.x messages then compiles with deprecation warnings; code
 that uses `Message.of`, `Language.label`, `CoreMessages`, the `MessageArg` union or the MF2
 internals needs the changes of step 2. To silence them while migrating:
-`-Wconf:cat=deprecation&origin=dev\.taihei\.i18n\.legacy\..*:s`. Legacy messages are
+`-Wconf:cat=deprecation&origin=dev\.taihei\.tsuji\.legacy\..*:s`. Legacy messages are
 `Displayable` and show next to new ones; `legacy.MessageArg` is the 4.x union type.
 
 ## Step 2: families, one at a time
@@ -32,7 +46,7 @@ internals needs the changes of step 2. To silence them while migrating:
 | `Language.label` (legacy) | `Language.label: Message` |
 | `CoreMessages.Exceptions.revisionMismatch(expected, actual)` | `revisionMismatchBetween(expected, actual)` |
 | `CoreMessages.Validation.formatErrors(Map[String, List[Message]])` | `formatErrors(Map[String, List[Displayable]])` |
-| CoreMessages in Dutch and French on Scala.js (inline in 4.x) | files now: export with `--scan dev.taihei.i18n` and load with `CatalogueLoader`, or a browser shows English |
+| CoreMessages in Dutch and French on Scala.js (inline in 4.x) | files now: export with `--scan dev.taihei.tsuji` and load with `CatalogueLoader`, or a browser shows English |
 | the case class `Message(args, namedArgs, translationTemplates)`, `copy`, fields | only on `legacy.Message` |
 | `nonEmpty` | `localize(language).nonEmpty` |
 | `given JsonCodec[Message]` needing nothing | the decoder and codec need a `given Catalogues` where summoned or derived |
@@ -45,6 +59,8 @@ message: upgrade readers (clients) first, or keep writing legacy messages until 
 
 ## Libraries built on 4.x
 
-`Language` is binary compatible with 4.x apart from `label`, which returns the new `Message`: a
-library compiled against 4.x that calls `label` fails with `NoSuchMethodError`. A library that
-uses `Language` but not `label` (taihei-lorem 4.x) keeps working with 5.0.0 on the classpath.
+A library compiled against taihei-i18n 4.x (taihei-lorem 4.x, for one) keeps working beside
+Taihei Tsuji 5, with its own taihei-i18n jar: the packages differ, so nothing clashes. Its
+`dev.taihei.i18n.Language` is not the `dev.taihei.tsuji.Language` of 5.x, so the two cannot be
+passed for each other. `Language` has the API of 4.x apart from `label`, which returns the new
+`Message`.

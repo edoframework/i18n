@@ -1,6 +1,6 @@
-# Taihei Framework i18n skill docs
+# Taihei Tsuji skill docs
 
-This directory is the source of the `taihei-i18n` Claude Code skill: how to use the library,
+This directory is the source of the `taihei-tsuji` Claude Code skill: how to use the library,
 written next to the code it describes.
 
 ```
@@ -17,6 +17,6 @@ Claude reads the depth only when it needs it.
 
 ## Using the skill
 
-Copy `SKILL.md` and `reference/` into a `skills/taihei-i18n/` directory of your own plugin, or into
-`.claude/skills/taihei-i18n/` of a project that uses the library. Nothing in this repository
+Copy `SKILL.md` and `reference/` into a `skills/taihei-tsuji/` directory of your own plugin, or into
+`.claude/skills/taihei-tsuji/` of a project that uses the library. Nothing in this repository
 publishes the skill anywhere.

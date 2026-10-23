@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repository: **Taihei Framework i18n** (`dev.taihei::taihei-i18n`
-and the JVM-only `dev.taihei::taihei-i18n-tools`): languages, typed message families with
-per-language catalogues, ICU MessageFormat 2.0 and locale-aware formatting for Scala 3 on the JVM
-and Scala.js. Part of the Taihei Framework; the family's rules come from the parent folder's
-`CLAUDE.md` when this repo is checked out under `~/Projects/Taihei`.
+Guidance for Claude Code in this repository: **Taihei Tsuji** (`dev.taihei::taihei-tsuji` and the
+JVM-only `dev.taihei::taihei-tsuji-tools`; taihei-i18n up to 4.x, on branch `4.0.x`): languages,
+typed message families with per-language catalogues, ICU MessageFormat 2.0 and locale-aware
+formatting for Scala 3 on the JVM and Scala.js. Part of the Taihei Framework; the family's rules
+come from the parent folder's `CLAUDE.md` when this repo is checked out under `~/Projects/Taihei`.
 
 ## Commands
 
@@ -19,13 +19,13 @@ make release-finalize  # publishes to Maven Central: only with the maintainer's 
 
 ## Layout
 
-- `shared/src/dev/taihei/i18n/`: `Language`, `MessageFamily` and `MessageDefinition`, the macro
+- `shared/src/dev/taihei/tsuji/`: `Language`, `MessageFamily` and `MessageDefinition`, the macro
   (`MessageMacros`), `Message`/`Text`/`Displayable`, `MessageArg`, `MessageKey`, `Catalogue`,
   `Catalogues`, `MessageFormat2`, `CoreMessages`; `legacy/` the deprecated 4.x `Message`.
-- `shared/resources/META-INF/taihei-i18n/`: CoreMessages' Dutch and French catalogues (JVM jar).
+- `shared/resources/META-INF/taihei-tsuji/`: CoreMessages' Dutch and French catalogues (JVM jar).
 - `jvm/src/…` and `js/src/…`: the private platform formatters, `ClasspathCatalogues` (JVM) and
   `CatalogueLoader` (Scala.js).
-- `tools/src/…`: `taihei-i18n-tools`, `ExportCatalogues`.
+- `tools/src/…`: `taihei-tsuji-tools`, `ExportCatalogues`.
 - `shared/test/src/…`: zio-test specs, run on both platforms; `jvm/test` and `js/test` for what
   exists on one platform only.
 - `docs/skill/`: the API reference for the library's Claude Code skill.
