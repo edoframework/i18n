@@ -490,6 +490,50 @@ object MessageSpec extends ZIOSpecDefault:
         val msg = Message(Nil, Map("n" * 65537 -> "v"), Map(Language.English -> "x"))
         assertTrue(msg.toJson.fromJson[Message].left.exists(_.contains("argument name is longer")))
       },
+      test("many argument names with one hash are counted before they are hashed") {
+        // "Aa" and "BB" have the same hashCode, so every name built from them shares one.
+        val names = (0 until (1 << 17)).map(i =>
+          (0 until 17).map(b => if (i >> b & 1) == 1 then "Aa" else "BB").mkString
+        )
+        val json  = names.map(n => s""""$n":"v"""").mkString(
+          """{"args":[],"namedArgs":{""",
+          ",",
+          """},"translationTemplates":{"en":"x"}}""",
+        )
+        assertTrue(
+          names.map(_.hashCode).distinct.size == 1,
+          json.fromJson[Message].left.exists(_.contains("1000 arguments")),
+        )
+      } @@ TestAspect.timeout(zio.Duration.fromSeconds(15)),
+      test("many template languages with one hash are counted before they are hashed") {
+        // "an" and "c0" have the same hashCode; these private-use tags are well formed.
+        val tags = (0 until (1 << 16)).map(i =>
+          "en-x-" + (0 until 4).map(sub =>
+            (0 until 4).map(b => if (i >> (sub * 4 + b) & 1) == 1 then "an" else "c0").mkString
+          ).mkString("-")
+        )
+        val json = tags.map(t => s""""$t":"x"""").mkString(
+          """{"args":[],"translationTemplates":{""",
+          ",",
+          "}}",
+        )
+        assertTrue(
+          tags.map(_.hashCode).distinct.size == 1,
+          Language.parse(tags.head).isRight,
+          json.fromJson[Message].left.exists(_.contains("1000 templates")),
+        )
+      } @@ TestAspect.timeout(zio.Duration.fromSeconds(15)),
+      test("reading keeps the 4.0.1 shape: defaults, built-in names, duplicate keys") {
+        val noNamed   = """{"args":["a"],"translationTemplates":{"English":"x {$0}","nl":"y"}}"""
+        val duplicate = """{"args":[],"translationTemplates":{"en":"first","English":"last"}}"""
+        val badKey    = """{"args":[],"translationTemplates":{"not a tag!":"x"}}"""
+        assertTrue(
+          noNamed.fromJson[Message] ==
+          Right(Message(List("a"), Map.empty, Map(Language.English -> "x {$0}", Language.Dutch -> "y"))),
+          duplicate.fromJson[Message].map(_.translationTemplates) == Right(Map(Language.English -> "last")),
+          badKey.fromJson[Message].left.exists(e => e.contains("not a language") && !e.contains("not a tag")),
+        )
+      },
       test("the largest message that reads shows its template instead of a text past the limit") {
         val template = "{$0}" * 16384
         val json     =

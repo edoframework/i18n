@@ -53,8 +53,8 @@ object Message:
     val derived = DeriveJsonCodec.gen[Message]
     JsonCodec(derived.encoder, derived.decoder.mapOrFail(withinBounds))
 
-  // JSON is where a message comes from outside the program. These bounds keep what reading it
-  // and formatting it cost in proportion to what a real message needs.
+  // JSON is where a message comes from outside the program. These bounds hold the size of what
+  // is read, and with it the text formatting it makes, to what a real message needs.
   private val MaxTemplates    = 1000
   private val MaxArgs         = 1000
   private val MaxStringLength = 65536
@@ -80,6 +80,28 @@ object Message:
 
   given JsonEncoder[MessageArg] = JsonEncoder[String].contramap(_.toString)
   given JsonDecoder[MessageArg] = JsonDecoder[String].map(identity)
+
+  // The two objects of a message are read as a list of pairs, counted, and only then made into a
+  // map: inserting many keys with the same hash into a map costs time quadratic in their number,
+  // so the count has to be known before any hashing. The derived codec above picks these up.
+  // A duplicate key keeps its last value, as the map decoder of zio-json does.
+  private given namedArgsDecoder: JsonDecoder[Map[String, MessageArg]] =
+    JsonDecoder.keyValueChunk[String, MessageArg].mapOrFail: pairs =>
+      if pairs.size > MaxArgs then Left(s"a message holds more than $MaxArgs arguments")
+      else Right(pairs.toMap)
+
+  private given templatesDecoder: JsonDecoder[Map[Language, String]] =
+    JsonDecoder.keyValueChunk[String, String].mapOrFail: pairs =>
+      if pairs.size > MaxTemplates then Left(s"a message holds more than $MaxTemplates templates")
+      else
+        // The keys are read as the codec of Language reads them; the error leaves the key out.
+        val languages = pairs.map((tag, template) => languageKey(tag).map(_ -> template))
+        if languages.exists(_.isEmpty) then Left("a template key is not a language")
+        else Right(languages.flatten.toMap)
+
+  private def languageKey(tag: String): Option[Language] =
+    try Some(summon[JsonFieldDecoder[Language]].unsafeDecodeField(Nil, tag))
+    catch case _: JsonDecoder.UnsafeJson => None
 
   /**
    * The throwable's message, in English. A throwable without one (`new RuntimeException()`) gives
