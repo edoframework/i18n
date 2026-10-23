@@ -5,12 +5,16 @@ SHELL = /bin/bash
 # release publishes all of them or none.
 CENTRAL_PATHS = dev/taihei/taihei-i18n_3 dev/taihei/taihei-i18n_sjs1_3 dev/taihei/taihei-i18n-tools_3
 
-# The folders whose files go into the published jars. Mill packs whatever is there, also files git
-# does not track or ignores (an IDE's or scala-cli's working files), so a release refuses when any
-# such file is present: what is published is what the tag holds.
-SOURCE_DIRS = shared jvm js tools
-STRAY_GUARD = STRAY=$$(git status --porcelain --ignored -- $(SOURCE_DIRS)); \
-	if [ -n "$$STRAY" ]; then echo "[ERROR] files git does not track would be published; remove them:"; echo "$$STRAY"; exit 1; fi
+# The folders whose files go into the published jars (build.mill names no other: its published
+# modules have no default resource folders). Mill packs whatever is there, also files git does
+# not track or ignores (an IDE's or scala-cli's working files), so a release refuses when any such
+# file is present, whatever git's settings for untracked files, and when a tracked file there is
+# marked assume-unchanged or skip-worktree, which hides its edits from git status: what is
+# published is what the tag holds.
+SOURCE_DIRS = shared jvm js tools i18n
+STRAY_GUARD = STRAY=$$(git status --porcelain --ignored --untracked-files=all -- $(SOURCE_DIRS)); \
+	HIDDEN=$$(git ls-files -v -- $(SOURCE_DIRS) | grep -E '^[a-zS]' || true); \
+	if [ -n "$$STRAY$$HIDDEN" ]; then echo "[ERROR] files git does not track, or hides changes of, would be published:"; echo "$$STRAY$$HIDDEN"; exit 1; fi
 
 # A release version is three numbers and nothing else.
 VERSION_GUARD = if ! [[ "$$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then echo "[ERROR] not a release version: '$$VERSION'"; exit 1; fi
@@ -110,6 +114,7 @@ publish:
 publish-dry-run:
 	@set -e; \
 	$(STRAY_GUARD); \
+	trap './mill shutdown >/dev/null 2>&1 || true' EXIT; \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
 	case "$$VERSION" in *-SNAPSHOT) BUNDLE=();; *) BUNDLE=(--bundleName "dev.taihei-taihei-i18n-$$VERSION");; esac; \
@@ -319,6 +324,7 @@ release-finalize:
 		echo "[ERROR] Uncommitted changes besides the notes: v$$NEW would publish as a SNAPSHOT"; \
 		git status --short | grep -v '^??'; exit 1; \
 	fi; \
+	$(STRAY_GUARD); \
 	git tag -a "v$$NEW" -m "Release $$NEW"; \
 	echo "[OK] Created local tag v$$NEW (not pushed)"; \
 	$(MAKE) release-preflight; \

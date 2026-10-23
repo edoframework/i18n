@@ -93,6 +93,13 @@ trait TaiheiMima extends Mima with PublishModule {
 trait TaiheiPublishSettings extends PublishModule {
   def publishVersion = release.gitVersion()
 
+  // What a published jar holds comes only from folders in git: no default folder under the
+  // module's directory, where a stray file would go into a jar unnoticed. A module that has
+  // resources names them.
+  def resources        = Task.Sources()
+  def compileResources = Task.Sources()
+  def docResources     = Task.Sources()
+
   def pomSettings = PomSettings(
     description = "Type-safe i18n for Scala 3: languages, typed message families and catalogues, ICU MessageFormat 2.0 and locale-aware formatting; JVM and Scala.js",
     organization = "dev.taihei",
