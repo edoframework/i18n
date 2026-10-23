@@ -88,6 +88,19 @@ final class Catalogues private (
 
   /** The languages tried, in order, to show a message of a family in `source` to a reader of `language`. */
   def fallbackChain(language: Language, source: Language): List[Language] =
+    chains.get.get(language -> source) match
+      case Some(chain) => chain
+      case None        =>
+        val chain = computeChain(language, source)
+        chains.updateAndGet: m =>
+          (if m.size >= MaxChains then Map.empty else m).updated(language -> source, chain)
+        chain
+
+  // Chains are asked for on every message shown: they are kept, up to MaxChains, then dropped
+  // all at once. A reader's language can come from a request header.
+  private val chains = new AtomicReference(Map.empty[(Language, Language), List[Language]])
+
+  private def computeChain(language: Language, source: Language): List[Language] =
     val seen                    = mutable.LinkedHashSet.empty[Language]
     def walk(l: Language): Unit =
       val steps = truncations(l).filter(seen.add)
@@ -362,6 +375,7 @@ object Catalogues:
   private val MaxMisses = 4096
 
   private val MaxChain    = 32
+  private val MaxChains   = 1024
   private val MaxProblems = 1000
 
   private def templateProblem(
@@ -373,7 +387,17 @@ object Catalogues:
 
   // The language with its last subtag removed, step by step; a step that is no tag (a singleton
   // left at the end) is passed over.
+  // Extensions and private use (from the first single-letter subtag on) say nothing about which
+  // translation to take: after the exact tag, they are left out before subtags are removed.
   private[i18n] def truncations(language: Language): List[Language] =
+    val parts = language.tag.split('-').toList
+    val plain = parts.takeWhile(_.length > 1)
+    val base  =
+      if plain.size == parts.size then language
+      else Language.parse(plain.mkString("-")).getOrElse(language)
+    (language :: truncationsOf(base)).distinct
+
+  private def truncationsOf(language: Language): List[Language] =
     @tailrec
     def loop(parts: List[String], acc: List[Language]): List[Language] =
       if parts.isEmpty then acc.reverse

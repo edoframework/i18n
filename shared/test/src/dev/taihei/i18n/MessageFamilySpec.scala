@@ -141,6 +141,9 @@ object MessageFamilySpec extends ZIOSpecDefault:
           c.fallbackChain(Language("lb-LU"), English).map(_.tag) == List("lb-LU", "lb", "de", "en"),
           c.fallbackChain(Language("en-GB"), English).map(_.tag) == List("en-GB", "en"),
           c.fallbackChain(Language("de-x-private"), English).map(_.tag) == List("de-x-private", "de", "en"),
+          c.fallbackChain(Language("de-CH-u-co-phonebk-x-a"), English).map(_.tag) ==
+          List("de-CH-u-co-phonebk-x-a", "de-CH", "de", "en"),
+          c.fallbackChain(Language("zh-Hant-TW"), English) eq c.fallbackChain(Language("zh-Hant-TW"), English),
         )
       },
       test("cyclic fallbacks end") {
