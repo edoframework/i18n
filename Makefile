@@ -5,6 +5,16 @@ SHELL = /bin/bash
 # release publishes all of them or none.
 CENTRAL_PATHS = dev/taihei/taihei-i18n_3 dev/taihei/taihei-i18n_sjs1_3 dev/taihei/taihei-i18n-tools_3
 
+# The folders whose files go into the published jars. Mill packs whatever is there, also files git
+# does not track or ignores (an IDE's or scala-cli's working files), so a release refuses when any
+# such file is present: what is published is what the tag holds.
+SOURCE_DIRS = shared jvm js tools
+STRAY_GUARD = STRAY=$$(git status --porcelain --ignored -- $(SOURCE_DIRS)); \
+	if [ -n "$$STRAY" ]; then echo "[ERROR] files git does not track would be published; remove them:"; echo "$$STRAY"; exit 1; fi
+
+# A release version is three numbers and nothing else.
+VERSION_GUARD = if ! [[ "$$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then echo "[ERROR] not a release version: '$$VERSION'"; exit 1; fi
+
 # The release credentials (MILL_SONATYPE_USERNAME / MILL_SONATYPE_PASSWORD for the Central Portal
 # user token, MILL_PGP_SECRET_BASE64 / MILL_PGP_PASSPHRASE for the release key). Read from this
 # file when it exists, otherwise from the environment (CI). Never passed as arguments: a
@@ -76,18 +86,22 @@ publishLocal:
 	fi
 	./mill __.publishLocal
 
-# Signs every artifact and uploads them as one named bundle to the Central Portal, which
+# Signs every artifact and uploads them as one named bundle (the Mill daemon is shut down at the
+# end, so that no process keeps the credentials) to the Central Portal, which
 # validates it and publishes it (Mill's SonatypeCentralPublishModule, AUTOMATIC): one deployment,
 # so that a failure leaves none of the artifacts public. Only a release version: the Central
 # snapshot repository is not enabled for the namespace.
 publish:
 	@set -e; \
+	$(STRAY_GUARD); \
+	trap './mill shutdown >/dev/null 2>&1 || true' EXIT; \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
 	for V in MILL_SONATYPE_USERNAME MILL_SONATYPE_PASSWORD MILL_PGP_SECRET_BASE64 MILL_PGP_PASSPHRASE; do \
 	  if [ -z "$${!V}" ]; then echo "[publish] $$V is not set ($(RELEASE_ENV) or the environment)"; exit 1; fi; \
 	done; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
-	case "$$VERSION" in *-SNAPSHOT) echo "[publish] refused: $$VERSION is not a release (an exact v-tag on a clean tree)"; exit 1;; [0-9]*.[0-9]*.[0-9]*) ;; *) echo "[publish] refused: no version from mill: '$$VERSION'"; exit 1;; esac; \
+	case "$$VERSION" in *-SNAPSHOT) echo "[publish] refused: $$VERSION is not a release (an exact v-tag on a clean tree)"; exit 1;; esac; \
+	$(VERSION_GUARD); \
 	echo "[publish] $$VERSION to Maven Central"; \
 	./mill mill.javalib.SonatypeCentralPublishModule/ --bundleName "dev.taihei-taihei-i18n-$$VERSION"
 
@@ -95,6 +109,7 @@ publish:
 # names a bundle only for a release version, so a SNAPSHOT dry run writes it unnamed.
 publish-dry-run:
 	@set -e; \
+	$(STRAY_GUARD); \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
 	case "$$VERSION" in *-SNAPSHOT) BUNDLE=();; *) BUNDLE=(--bundleName "dev.taihei-taihei-i18n-$$VERSION");; esac; \
@@ -106,7 +121,9 @@ publish-dry-run:
 release-preflight:
 	@set -e; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
-	case "$$VERSION" in *-SNAPSHOT) echo "[preflight] $$VERSION is not a release"; exit 1;; [0-9]*.[0-9]*.[0-9]*) ;; *) echo "[preflight] no version from mill: '$$VERSION'"; exit 1;; esac; \
+	case "$$VERSION" in *-SNAPSHOT) echo "[preflight] $$VERSION is not a release"; exit 1;; esac; \
+	$(VERSION_GUARD); \
+	$(STRAY_GUARD); \
 	FOUND=""; \
 	for P in $(CENTRAL_PATHS); do \
 	  CODE=$$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$$P/$$VERSION/" || true); \
@@ -327,6 +344,8 @@ release-abort:
 		fi; \
 		rm -f $(RELEASE_STATE); \
 		echo "[OK] Release aborted, tag v$$NEW removed"; \
+		echo "[WARN] If the upload reached the Central Portal before the failure, Central may publish v$$NEW anyway:"; \
+		echo "       check https://repo1.maven.org/maven2/$(firstword $(CENTRAL_PATHS))/$$NEW/ before you release this version again."; \
 	else \
 		echo "No release in progress"; \
 	fi
