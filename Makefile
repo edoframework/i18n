@@ -101,8 +101,8 @@ publish-dry-run:
 	MILL_TESTS_PUBLISH_DRY_RUN=1 ./mill mill.javalib.SonatypeCentralPublishModule/ "$${BUNDLE[@]}"; \
 	echo "[publish-dry-run] bundle in out/mill.javalib.SonatypeCentralPublishModule/publishAll.dest/repository"
 
-# Refuses when the version at HEAD is not a release, or when any of its artifacts is already on
-# Central (immutable), naming each one that is.
+# Refuses when the version at HEAD is not a release, when any of its artifacts is already on
+# Central (immutable), naming each one that is, or when Central does not answer 200 or 404.
 release-preflight:
 	@set -e; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
@@ -110,7 +110,11 @@ release-preflight:
 	FOUND=""; \
 	for P in $(CENTRAL_PATHS); do \
 	  CODE=$$(curl -s -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$$P/$$VERSION/"); \
-	  if [ "$$CODE" = "200" ]; then FOUND="$$FOUND $$P"; fi; \
+	  case "$$CODE" in \
+	    200) FOUND="$$FOUND $$P";; \
+	    404) ;; \
+	    *) echo "[preflight] cannot tell whether $$P/$$VERSION is on Maven Central (HTTP $$CODE)"; exit 1;; \
+	  esac; \
 	done; \
 	if [ -n "$$FOUND" ]; then echo "[preflight] $$VERSION is already on Maven Central:$$FOUND"; exit 1; fi; \
 	echo "[preflight] $$VERSION is not on Maven Central yet ($(CENTRAL_PATHS))"
