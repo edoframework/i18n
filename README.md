@@ -283,9 +283,12 @@ language:
   message brings at most 1000 templates of at most 64K characters, a catalogue is at most 4M
   characters, 100000 messages and 16 levels of JSON nesting, and one template formats to at most
   a million characters (past that it falls back).
-- On the JVM each language a reader asks for is looked up on the classpath once per family, up to
-  4096 lookups per registry. Narrow a language from a request header to the languages you
-  support before you show messages in it.
+- On the JVM a registry looks a family's file for a language up on the classpath once and keeps
+  it; of the languages without a file it remembers the latest 4096. Narrow a language from a
+  request header to the languages you support before you show messages in it, or each new tag
+  costs a lookup per family.
+- One message, with its nested messages, list elements and fallbacks, produces at most four
+  million characters; past that it shows its own template.
 
 Versioning rules for keys:
 

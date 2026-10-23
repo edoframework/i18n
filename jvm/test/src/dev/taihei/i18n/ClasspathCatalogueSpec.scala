@@ -47,13 +47,10 @@ object ClasspathCatalogueSpec extends ZIOSpecDefault:
         problems.exists(_.message.contains("not a key of order")),
       )
     },
-    test("languages from a request header stop being looked up after 4096") {
+    test("a flood of languages without files does not keep a supported one from loading") {
       given c: Catalogues = Catalogues()
-      (1 to 4200).foreach(i => Orders.cancelled.localize(Language(s"en-x-n$i")))
-      assertTrue(
-        Orders.cancelled.localize(German) == "Your order was cancelled",
-        c.problems.exists(_.message.contains("more than 4096 languages")),
-      )
+      (1 to 5000).foreach(i => Orders.cancelled.localize(Language(s"en-x-n$i")))
+      assertTrue(Orders.cancelled.localize(German) == "Ihre Bestellung wurde storniert")
     },
     test("a file larger than the limit is refused after reading the limit, not all of it") {
       var served  = 0L

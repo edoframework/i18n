@@ -330,6 +330,19 @@ object MessageFamilySpec extends ZIOSpecDefault:
           MessageFormat2.format(template, Map("0" -> "A" * 50000)) == template,
         )
       },
+      test("a list of nested messages near the limit is held to one budget per message") {
+        given Catalogues = Catalogues(CoreMessages.families)
+        def element(repeat: Int)        =
+          s"""{"args":[],"namedArgs":{"x":"${"A" * 1732}"},"translationTemplates":{"English":"${"{$x}" * repeat}"}}"""
+        def failed(n: Int, repeat: Int) =
+          s"""{"key":"taihei.validation.failed","args":{"errors":[${List.fill(n)(element(repeat)).mkString(",")}]}}"""
+        val under                       = failed(300, 577).fromJson[Message].map(_.localize(English))
+        val over                        = failed(2000, 578).fromJson[Message].map(_.localize(English))
+        assertTrue(
+          under == Right("Validation failed: {$errors}"),
+          over == Right("Validation failed: {$errors}"),
+        )
+      },
       test("a 4.x message with too many or too long templates is refused") {
         given Catalogues = Catalogues()
         val many = (1 to 1001).map(i => s""""l$i":"x"""").mkString(",")

@@ -35,13 +35,15 @@ case class Message(
     using catalogues: Catalogues
   ): String = translate(language)
 
-  private def message(template: String, language: Language): String =
+  private def formatArgs: Map[String, Any] =
     val positionalArgs = args.zipWithIndex.map:
       case (value, idx) => idx.toString -> value
     val mf2Args        = namedArgs ++ positionalArgs
-    val formattedArgs  = mf2Args.map:
+    mf2Args.map:
       case (k, v) => k -> (v: Any)
-    MessageFormat2.format(template, formattedArgs, language.isoCode)
+
+  private def message(template: String, language: Language): String =
+    MessageFormat2.format(template, formatArgs, language.isoCode)
 
   // Exact, then the base language (a Belgian Dutch reader gets the Dutch text when no nl-BE one
   // was written), then English.
@@ -53,6 +55,16 @@ case class Message(
 
   def translate(language: Language): String =
     message(template(language), language)
+
+  // As translate, within the budget of the 5.x message this one is an argument of.
+  private[i18n] def translateWithin(language: Language, budget: Budget): String =
+    val t = template(language)
+    MessageFormat2.tryFormat(
+      MessageFormat2.parse(t).message,
+      formatArgs,
+      language.isoCode,
+      budget,
+    ).getOrElse(t)
 
   def render(language: Language): String = translate(language)
 

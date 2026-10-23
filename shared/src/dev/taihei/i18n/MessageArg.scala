@@ -25,7 +25,7 @@ import zio.json.ast.Json
  */
 final class MessageArg[A] private[i18n] (
   private[i18n] val kind: ArgKind,
-  private[i18n] val toFormat: (A, Language, Catalogues) => Any,
+  private[i18n] val toFormat: (A, Language, Catalogues, Budget) => Any,
   private[i18n] val encode: A => Json,
   private[i18n] val decode: (Json, MessageArg.Context) => Either[String, A],
   private[i18n] val absent: Option[A] = None)
@@ -52,6 +52,7 @@ object MessageArg:
       kind,
       (
         a,
+        _,
         _,
         _,
       ) => a,
@@ -169,10 +170,9 @@ object MessageArg:
         a,
         language,
         catalogues,
+        budget,
       ) =>
-        a.localize(language)(
-          using catalogues
-        ),
+        catalogues.renderWithin(a, language, budget),
       a => Displayable.toJsonAst(a),
       (json, context) =>
         if context.depth >= MaxDepth then Left(s"messages nested deeper than $MaxDepth")
@@ -198,7 +198,8 @@ object MessageArg:
         o,
         language,
         catalogues,
-      ) => o.fold("")(a => base.toFormat(a, language, catalogues)),
+        budget,
+      ) => o.fold("")(a => base.toFormat(a, language, catalogues, budget)),
       _.fold(Json.Null)(base.encode),
       (json, context) =>
         json match
@@ -217,10 +218,14 @@ object MessageArg:
         as,
         language,
         catalogues,
+        budget,
       ) =>
-        as.map(a =>
-          MessageFormat2.show(base.toFormat(a, language, catalogues), language.tag)
-        ).mkString(", "),
+        MessageFormat2.joined(
+          as.map(a =>
+            MessageFormat2.show(base.toFormat(a, language, catalogues, budget), language.tag)
+          ),
+          budget,
+        ),
       as => Json.Arr(as.map(base.encode)*),
       (json, context) =>
         json match
@@ -250,7 +255,8 @@ object MessageArg:
         a,
         language,
         catalogues,
-      ) => base.toFormat(to(a), language, catalogues),
+        budget,
+      ) => base.toFormat(to(a), language, catalogues, budget),
       a => base.encode(to(a)),
       (json, context) => base.decode(json, context).flatMap(from),
       base.absent.flatMap(b => from(b).toOption),

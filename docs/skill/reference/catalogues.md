@@ -43,8 +43,9 @@ Orders.cancelled.localize(Language("lb-LU"))
 ## JVM: the classpath
 
 Files at `META-INF/taihei-i18n/<prefix>/<tag>.json` (canonical tag, `zh-Hant.json`), read with the
-family's class loader the first time a language is needed, at most 16 MB, UTF-8 only, and at
-most 4096 lookups per registry: narrow a request header's language to the supported ones. Keys of
+family's class loader the first time a language is needed, at most 16 MB, UTF-8 only. A file
+found is kept; of the misses the latest 4096 are remembered. Narrow a request header's language
+to the supported ones. Keys of
 another family in a family's file are left out with a problem.
 
 - `ClasspathCatalogues.read(family, language): Option[Either[CatalogueProblem, Catalogue]]`.

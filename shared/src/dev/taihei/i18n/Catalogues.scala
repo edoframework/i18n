@@ -102,10 +102,28 @@ final class Catalogues private (
   private[i18n] def definition(key: MessageKey): Option[MessageDefinition[?]] =
     state.get.definitions.get(key)
 
+  // A nested message or text, within the budget of the message it is an argument of.
   @nowarn("cat=deprecation")
-  private[i18n] def render(message: Message, language: Language): String =
+  private[i18n] def renderWithin(
+    d: Displayable,
+    language: Language,
+    budget: Budget,
+  ): String = d match
+    case m: Message        => render(m, language, budget)
+    case t: Text           => t.value
+    case l: legacy.Message => l.translateWithin(language, budget)
+    case other             => other.localize(language)(
+        using this
+      )
+
+  @nowarn("cat=deprecation")
+  private[i18n] def render(
+    message: Message,
+    language: Language,
+    budget: Budget = Budget.fresh(),
+  ): String =
     message.body match
-      case Message.Body.Legacy(legacyMessage) => legacyMessage.translate(language)
+      case Message.Body.Legacy(legacyMessage) => legacyMessage.translateWithin(language, budget)
       case Message.Body.Unresolved(_, text)   => text
       case Message.Body.Defined(d, args)      =>
         try
@@ -113,11 +131,11 @@ final class Catalogues private (
           val values = d.arguments
             .zip(args)
             .map:
-              case ((name, arg), value) => name -> arg.toFormat(value, language, this)
+              case ((name, arg), value) => name -> arg.toFormat(value, language, this, budget)
             .toMap
           fallbackChain(language, d.family.sourceLanguage).iterator
             .flatMap(candidate => template(d, candidate))
-            .flatMap(t => MessageFormat2.tryFormat(t, values, language.tag))
+            .flatMap(t => MessageFormat2.tryFormat(t, values, language.tag, budget))
             .nextOption()
             .getOrElse(d.template)
         catch case NonFatal(_) => d.template
@@ -139,12 +157,7 @@ final class Catalogues private (
     : Option[MessageFormat2.Message] =
     if fromResources && PlatformCatalogueResources.available &&
       !state.get.attempted((d.family.prefix, language))
-    then
-      if state.get.attempted.size < MaxAttempted then loadResource(d.family, language)
-      else
-        report(List(CatalogueProblem(
-          s"more than $MaxAttempted languages asked for: no more are read from the classpath"
-        )))
+    then loadResource(d.family, language)
     state.get.files.get(language).flatMap(_.get(d.key)).flatMap:
       case Entry.Valid(parsed) => Some(parsed)
       case Entry.Invalid       => None
@@ -161,7 +174,7 @@ final class Catalogues private (
   private def loadResource(family: MessageFamily, language: Language): Unit =
     update(s => s.copy(attempted = s.attempted + (family.prefix -> language)))
     PlatformCatalogueResources.read(family, language.tag) match
-      case None                => ()
+      case None                => forgetOldMisses(family.prefix -> language)
       case Some(Left(problem)) => report(List(CatalogueProblem(problem, Some(language))))
       case Some(Right(text))   =>
         Catalogue.parse(text) match
@@ -176,6 +189,17 @@ final class Catalogues private (
             notifyAdded(language)
 
   end loadResource
+
+  // A file that exists is read once and kept. A miss is remembered too, but only the latest
+  // MaxMisses of them: a reader's language can come from a request header, and there is no end
+  // to the tags that have no file.
+  private def forgetOldMisses(miss: (String, Language)): Unit =
+    update: s =>
+      val misses = s.misses :+ miss
+      if misses.size <= MaxMisses then s.copy(misses = misses)
+      else
+        val (old, kept) = misses.splitAt(misses.size - MaxMisses)
+        s.copy(misses = kept, attempted = s.attempted -- old)
 
   private def merge(catalogue: Catalogue, overrideExisting: Boolean): List[CatalogueProblem] =
     val known   = state.get.definitions
@@ -333,9 +357,8 @@ object Catalogues:
   // Reads no files and keeps no families: it only ever uses the code's own templates.
   private val sourceOnly = new Catalogues(Map.empty, fromResources = false, registers = false)
 
-  // Each language a reader asks for is looked up on the classpath once per family, and the lookup
-  // is remembered. A reader's language can come from a request header: past this many, no more.
-  private val MaxAttempted = 4096
+  // How many family and language pairs without a file a registry remembers.
+  private val MaxMisses = 4096
 
   private val MaxChain    = 32
   private val MaxProblems = 1000
@@ -368,9 +391,10 @@ object Catalogues:
     definitions: Map[MessageKey, MessageDefinition[?]],
     files: Map[Language, Map[MessageKey, Entry]],
     attempted: Set[(String, Language)],
+    misses: Vector[(String, Language)],
     problems: Vector[CatalogueProblem])
 
   private object State:
-    val empty: State = State(Map.empty, Map.empty, Map.empty, Set.empty, Vector.empty)
+    val empty: State = State(Map.empty, Map.empty, Map.empty, Set.empty, Vector.empty, Vector.empty)
 
 end Catalogues

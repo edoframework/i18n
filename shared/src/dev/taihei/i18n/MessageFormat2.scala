@@ -619,15 +619,17 @@ object MessageFormat2:
 
   final private[i18n] case class Context(
     variables: Map[String, Any] = Map.empty,
-    locale: String = "en")
+    locale: String = "en",
+    budget: Budget = Budget.fresh())
 
   // None when evaluating threw, which no input should make it do; the caller decides what to show.
   private[i18n] def tryFormat(
     message: Message,
     args: Map[String, Any],
     locale: String,
+    budget: Budget = Budget.fresh(),
   ): Option[String] =
-    try Some(evaluate(message, Context(args, locale)))
+    try Some(evaluate(message, Context(args, locale, budget)))
     catch case NonFatal(_) => None
 
   private def evaluate(message: Message, initialContext: Context): String =
@@ -703,6 +705,7 @@ object MessageFormat2:
     val out                       = new StringBuilder
     def append(s: String): Unit   =
       if out.length + s.length > MaxOutputLength then throw new TooLong
+      context.budget.charge(s.length)
       out ++= s
     def piece(p: Pattern): String = p match
       case Text(value)        => value
@@ -717,7 +720,18 @@ object MessageFormat2:
   // template makes is cut off here, and formatting falls back, rather than run out of memory.
   private[i18n] val MaxOutputLength = 1000000
 
-  final private class TooLong extends RuntimeException("formatted text too long", null, false, false)
+  final private[i18n] class TooLong
+    extends RuntimeException("formatted text too long", null, false, false)
+
+  // The elements of a list argument joined by ", ", held to the same limits.
+  private[i18n] def joined(parts: List[String], budget: Budget): String =
+    val out = new StringBuilder
+    parts.zipWithIndex.foreach: (p, i) =>
+      val piece = if i == 0 then p else ", " + p
+      if out.length + piece.length > MaxOutputLength then throw new TooLong
+      budget.charge(piece.length)
+      out ++= piece
+    out.result()
 
   private def evaluateMatch(matchStmt: MatchStatement, context: Context): String =
     val selectorValues = matchStmt.selectors.map(s => evaluateExpression(s, context))
@@ -757,6 +771,23 @@ object MessageFormat2:
       case _                         => key == "other" || key == "*"
 
 end MessageFormat2
+
+/**
+ * How many characters one message may still produce, its nested messages, list elements and
+ * fallback attempts included. Arguments from the wire can be repeated by a template; past the
+ * budget, formatting stops and the message shows its own template.
+ */
+final private[i18n] class Budget private (private var left: Long):
+
+  def charge(n: Int): Unit =
+    left -= n
+    if left < 0 then throw new MessageFormat2.TooLong
+
+private[i18n] object Budget:
+
+  val PerMessage: Long = 4L * MessageFormat2.MaxOutputLength
+
+  def fresh(): Budget = new Budget(PerMessage)
 
 /** The kind of value an argument gives a template, which decides the functions that apply to it. */
 private[i18n] enum ArgKind:
