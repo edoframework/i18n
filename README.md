@@ -172,7 +172,8 @@ Translations come from two places, both checked the same way:
 To show a message in language L, a `Catalogues` registry uses the first of these that has the key:
 
 1. L exactly (`zh-Hant-TW`);
-2. L with its last subtag removed, step by step (`zh-Hant`, then `zh`);
+2. L without its extensions and private use (`-u-...`, `-x-...`), then with its last subtag
+   removed, step by step (`zh-Hant`, then `zh`);
 3. the fallbacks configured for L, each walked the same way:
    `Catalogues(families, fallbacks = Map(Language("lb") -> Seq(Language("de"))))`;
 4. the family's source language, which always has it.

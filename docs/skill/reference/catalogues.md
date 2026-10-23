@@ -15,7 +15,8 @@ One JSON file per language, MF2 templates by key:
   over 4M characters, nested deeper than 16, with more than 100000 messages, not JSON, not format
   1, or without a valid `language`. Entries that are not a key and a string template of at most
   64K characters are left out and listed in `catalogue.problems`.
-- `CatalogueProblem(message, language: Option[Language], key: Option[MessageKey])`; input text in
+- `CatalogueProblem` is read, not built: `message`, `language: Option[Language]`,
+  `key: Option[MessageKey]`; input text in
   it is escaped and cut short, safe to log.
 
 ## Catalogues, the registry
@@ -28,8 +29,9 @@ given catalogues: Catalogues = Catalogues(
 Orders.cancelled.localize(Language("lb-LU"))
 ```
 
-- The chain for language L: L, L without its last subtag step by step, the configured fallbacks of
-  each of those (walked the same way), the family's source language. Formatting always in L.
+- The chain for language L: L, L without its extensions and private use, then without its last
+  subtag step by step, the configured fallbacks of each of those (walked the same way), the
+  family's source language. Formatting always in L.
   `catalogues.fallbackChain(language, source)` shows it.
 - In a language, a catalogue file wins over an inline translation; in the source language the
   code's template wins.

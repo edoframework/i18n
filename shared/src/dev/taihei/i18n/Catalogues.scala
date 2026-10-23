@@ -14,7 +14,8 @@ import scala.util.control.NonFatal
  * To show a message in language L, the first of these that has its key is used:
  *
  *  1. L exactly (`zh-Hant-TW`);
- *  1. L with its last subtag removed, step by step (`zh-Hant`, then `zh`);
+ *  1. L without its extensions and private use (`-u-...`, `-x-...`), then with its last subtag
+ *     removed, step by step (`zh-Hant`, then `zh`);
  *  1. the fallbacks configured here for L, and for each of those steps, each walked the same way
  *     (`lb` to `de`, or `pt-BR` to `pt` to `es`);
  *  1. the family's source language, which always has it.
