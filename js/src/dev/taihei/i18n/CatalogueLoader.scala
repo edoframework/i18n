@@ -19,6 +19,9 @@ import scala.util.control.NonFatal
  */
 object CatalogueLoader:
 
+  // UTF-8 takes at most four bytes per character of a catalogue.
+  private val MaxBytes = Catalogue.MaxLength.toLong * 4
+
   /**
    * Fetches the file at `url`, checks that it is a catalogue of `language`, and adds it. The
    * `Future` never fails: what went wrong, from the network to a template, is in the list.
@@ -41,9 +44,18 @@ object CatalogueLoader:
             .asInstanceOf[js.Promise[js.Dynamic]]
             .toFuture
             .flatMap: response =>
+              // A declared length over the limit is refused before the body is read; a body
+              // without one is still held to Catalogue.parse's limit after it is read.
+              val length   = response.headers.get("content-length")
+              val declared =
+                if js.isUndefined(length) || length == null then None
+                else String.valueOf(length).trim.toLongOption
               if !response.ok.asInstanceOf[Boolean] then
                 Future.failed(new IllegalStateException(s"HTTP ${response.status}"))
+              else if declared.exists(_ > MaxBytes) then
+                Future.failed(new IllegalStateException(s"larger than $MaxBytes bytes"))
               else response.text().asInstanceOf[js.Promise[String]].toFuture
+        end if
       catch case NonFatal(e) => Future.failed(e)
     fetched
       .map: text =>
