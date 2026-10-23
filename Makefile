@@ -110,6 +110,8 @@ release-preflight:
 # Usage: make release-prepare TYPE=patch|minor|major
 #        (review RELEASE_x_y_z.md)
 #        make release-finalize   (notes commit, local tag, publish; the push is yours)
+# It works on main and on a maintenance branch (<major>.<minor>.x, cut from a release tag for a
+# fix): the version comes from the newest v-tag reachable from HEAD on either.
 #
 # Publishing is atomic with the tag: the tag is created locally, the artifacts are published with
 # the clean version it gives, and only then do you push main and the tag. A failed publish leaves
@@ -297,8 +299,9 @@ release-finalize:
 	echo "=============================================="; \
 	echo "RELEASE v$$NEW PUBLISHED TO MAVEN CENTRAL (tag local)"; \
 	echo "=============================================="; \
-	echo "Push main and the tag:"; \
-	echo "  git push origin main && git push origin v$$NEW"
+	BRANCH=$$(git branch --show-current); \
+	echo "Push $$BRANCH and the tag:"; \
+	echo "  git push origin $$BRANCH && git push origin v$$NEW"
 
 release-abort:
 	@set -e; \
