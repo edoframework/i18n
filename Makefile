@@ -1,8 +1,9 @@
 SHELL = /bin/bash
 
-# Maven Central coordinates of one published artifact, used to see whether a version is already
-# released. Central is immutable: a version that is there cannot be published again.
-CENTRAL_PATH = dev/taihei/taihei-i18n_3
+# Maven Central paths of every published artifact, used to see whether a version is already
+# released. Central is immutable: a version that is there cannot be published again, and a
+# release publishes all of them or none.
+CENTRAL_PATHS = dev/taihei/taihei-i18n_3 dev/taihei/taihei-i18n_sjs1_3 dev/taihei/taihei-i18n-tools_3
 
 # The release credentials (MILL_SONATYPE_USERNAME / MILL_SONATYPE_PASSWORD for the Central Portal
 # user token, MILL_PGP_SECRET_BASE64 / MILL_PGP_PASSPHRASE for the release key). Read from this
@@ -75,9 +76,10 @@ publishLocal:
 	fi
 	./mill __.publishLocal
 
-# Signs every artifact and uploads one bundle to the Central Portal, which validates it and
-# publishes it (Mill's SonatypeCentralPublishModule, AUTOMATIC). Only a release version: the
-# Central snapshot repository is not enabled for the namespace.
+# Signs every artifact and uploads them as one named bundle to the Central Portal, which
+# validates it and publishes it (Mill's SonatypeCentralPublishModule, AUTOMATIC): one deployment,
+# so that a failure leaves none of the artifacts public. Only a release version: the Central
+# snapshot repository is not enabled for the namespace.
 publish:
 	@set -e; \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
@@ -87,23 +89,31 @@ publish:
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
 	case "$$VERSION" in *-SNAPSHOT) echo "[publish] refused: $$VERSION is not a release (an exact v-tag on a clean tree)"; exit 1;; esac; \
 	echo "[publish] $$VERSION to Maven Central"; \
-	./mill mill.javalib.SonatypeCentralPublishModule/
+	./mill mill.javalib.SonatypeCentralPublishModule/ --bundleName "dev.taihei-taihei-i18n-$$VERSION"
 
-# The same bundle, signed, written to out/ instead of uploaded: what Central would receive.
+# The same bundle, signed, written to out/ instead of uploaded: what Central would receive. Mill
+# names a bundle only for a release version, so a SNAPSHOT dry run writes it unnamed.
 publish-dry-run:
 	@set -e; \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
-	MILL_TESTS_PUBLISH_DRY_RUN=1 ./mill mill.javalib.SonatypeCentralPublishModule/; \
+	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
+	case "$$VERSION" in *-SNAPSHOT) BUNDLE=();; *) BUNDLE=(--bundleName "dev.taihei-taihei-i18n-$$VERSION");; esac; \
+	MILL_TESTS_PUBLISH_DRY_RUN=1 ./mill mill.javalib.SonatypeCentralPublishModule/ "$${BUNDLE[@]}"; \
 	echo "[publish-dry-run] bundle in out/mill.javalib.SonatypeCentralPublishModule/publishAll.dest/repository"
 
-# Refuses when the version at HEAD is already on Central (immutable) or is not a release.
+# Refuses when the version at HEAD is not a release, or when any of its artifacts is already on
+# Central (immutable), naming each one that is.
 release-preflight:
 	@set -e; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
 	case "$$VERSION" in *-SNAPSHOT) echo "[preflight] $$VERSION is not a release"; exit 1;; esac; \
-	CODE=$$(curl -s -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$(CENTRAL_PATH)/$$VERSION/"); \
-	if [ "$$CODE" = "200" ]; then echo "[preflight] $$VERSION is already on Maven Central"; exit 1; fi; \
-	echo "[preflight] $$VERSION is not on Maven Central yet"
+	FOUND=""; \
+	for P in $(CENTRAL_PATHS); do \
+	  CODE=$$(curl -s -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$$P/$$VERSION/"); \
+	  if [ "$$CODE" = "200" ]; then FOUND="$$FOUND $$P"; fi; \
+	done; \
+	if [ -n "$$FOUND" ]; then echo "[preflight] $$VERSION is already on Maven Central:$$FOUND"; exit 1; fi; \
+	echo "[preflight] $$VERSION is not on Maven Central yet ($(CENTRAL_PATHS))"
 
 # ---------------------------------------------------------------------------
 # Release
