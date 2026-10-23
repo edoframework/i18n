@@ -17,9 +17,9 @@ Published on Maven Central under `dev.taihei`:
 | `taihei-i18n_sjs1`      | Scala.js | The same API, formatting via the browser `Intl` API. |
 
 ```scala
-mvn"dev.taihei::taihei-i18n:4.0.0"     // Mill, JVM
-mvn"dev.taihei::taihei-i18n::4.0.0"    // Mill, Scala.js
-"dev.taihei" %%% "taihei-i18n" % "4.0.0" // sbt
+mvn"dev.taihei::taihei-i18n:4.0.1"     // Mill, JVM
+mvn"dev.taihei::taihei-i18n::4.0.1"    // Mill, Scala.js
+"dev.taihei" %%% "taihei-i18n" % "4.0.1" // sbt
 ```
 
 The `shared/` sources compile on both platforms; `jvm/` and `js/` hold only the
@@ -63,14 +63,14 @@ Publishing reads the Central Portal user token and the release key from
 `~/.edo-release.env` or the environment (`MILL_SONATYPE_USERNAME`,
 `MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`, `MILL_PGP_PASSPHRASE`).
 Releases are signed by the Taihei Framework release key, fingerprint
-`5026 B299 6DDB 697E C463  0BCF 14A7 33E2 A507 702F`. Its user id is still
-`Edo Framework Releases <releases@edoframework.com>`, from before the family was renamed;
-the fingerprint is what to verify. It is published on keyserver.ubuntu.com and
-keys.openpgp.org.
+`5026 B299 6DDB 697E C463  0BCF 14A7 33E2 A507 702F`, with the user ids
+`Taihei Framework Releases <releases@taihei.dev>` and, from before the family was renamed,
+`Edo Framework Releases <releases@edoframework.com>`. The fingerprint is what to verify. The
+key is published on keyserver.ubuntu.com and keys.openpgp.org.
 
 ## Coming from edo-i18n 3.0.0 or genius-i18n
 
-4.0.0 has the API of `com.edoframework::edo-i18n:3.0.0` under the library's new name:
+From 4.0.0 on, the library has the API of `com.edoframework::edo-i18n:3.0.0` under its new name:
 
 - the dependency is `dev.taihei::taihei-i18n`;
 - the package is `dev.taihei.i18n`: replace `com.edoframework.i18n` in your imports.
