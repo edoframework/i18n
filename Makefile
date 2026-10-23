@@ -15,7 +15,7 @@ SOURCE_DIRS = shared jvm js tools tsuji
 # The build definition decides which modules are published: a stray .mill file anywhere in the
 # tree adds one. So the guard covers it too, and every publishing step checks that exactly the
 # modules below are published.
-BUILD_FILES = '*.mill' '*.mill.yaml' mill-build .mill-version .mill-jvm-opts .config ':(exclude)out'
+BUILD_FILES = '*.mill' '*.mill.yaml' '*.mill.scala' '*.sc' mill-build .mill-version .mill-jvm-opts .config ':(exclude)out'
 STRAY_GUARD = STRAY=$$(git status --porcelain --ignored --untracked-files=all -- $(SOURCE_DIRS) $(BUILD_FILES)); \
 	HIDDEN=$$(git ls-files -v -- $(SOURCE_DIRS) | grep -E '^[a-zS]' || true); \
 	if [ -n "$$STRAY$$HIDDEN" ]; then echo "[ERROR] files git does not track, or hides changes of, would be published:"; echo "$$STRAY$$HIDDEN"; exit 1; fi
@@ -378,7 +378,8 @@ release-abort:
 		fi; \
 		NOTES="RELEASE_$${NEW//./_}.md"; \
 		if [ -f "$$NOTES" ] && ! git ls-files --error-unmatch "$$NOTES" >/dev/null 2>&1; then \
-			rm -f "$$NOTES"; echo "[OK] Removed the prepared notes $$NOTES"; \
+			mv -f "$$NOTES" ".release-notes.aborted-$$NEW.md"; \
+			echo "[OK] Moved the prepared notes $$NOTES to .release-notes.aborted-$$NEW.md (gitignored), for reference"; \
 		fi; \
 		rm -f $(RELEASE_STATE); \
 		echo "[OK] Release aborted, tag v$$NEW removed"; \
