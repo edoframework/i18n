@@ -131,7 +131,7 @@ release-prepare:
 		echo "[ERROR] Uncommitted changes:"; git status --short | grep -v '^??'; exit 1; \
 	fi; \
 	BRANCH=$$(git branch --show-current); \
-	if [ "$$BRANCH" != "main" ]; then echo "[WARN] Not on main branch ($$BRANCH)"; fi; \
+	case "$$BRANCH" in main|[0-9]*.[0-9]*.x) ;; *) echo "[WARN] Not on main or a maintenance branch ($$BRANCH)";; esac; \
 	git fetch --tags; \
 	CURRENT=$$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || echo "v0.0.0"); \
 	CURRENT=$${CURRENT#v}; \
@@ -299,7 +299,7 @@ release-finalize:
 	echo "=============================================="; \
 	echo "RELEASE v$$NEW PUBLISHED TO MAVEN CENTRAL (tag local)"; \
 	echo "=============================================="; \
-	BRANCH=$$(git branch --show-current); \
+	BRANCH=$$(git branch --show-current); BRANCH=$${BRANCH:-<branch>}; \
 	echo "Push $$BRANCH and the tag:"; \
 	echo "  git push origin $$BRANCH && git push origin v$$NEW"
 

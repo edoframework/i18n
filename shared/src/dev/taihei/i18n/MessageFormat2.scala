@@ -421,8 +421,7 @@ object MessageFormat2:
   /**
    * The template formatted with `args` in the locale given by the BCP 47 tag `locale`. A variable
    * without a value shows as `$name`. The text one template formats to is at most a million
-   * characters (`MaxOutputLength`); a template whose text would be longer comes back as it was
-   * written.
+   * characters; a template whose text would be longer comes back as it was written.
    */
   def format(
     template: String,
