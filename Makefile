@@ -109,7 +109,7 @@ release-preflight:
 	case "$$VERSION" in *-SNAPSHOT) echo "[preflight] $$VERSION is not a release"; exit 1;; esac; \
 	FOUND=""; \
 	for P in $(CENTRAL_PATHS); do \
-	  CODE=$$(curl -s -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$$P/$$VERSION/"); \
+	  CODE=$$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$$P/$$VERSION/" || true); \
 	  case "$$CODE" in \
 	    200) FOUND="$$FOUND $$P";; \
 	    404) ;; \
