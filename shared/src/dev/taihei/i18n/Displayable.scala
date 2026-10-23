@@ -206,10 +206,38 @@ object Message:
               )
             case None             =>
               text
-                .map(t => new Message(key, Body.Unresolved(args, t)))
                 .toRight(s"unknown message key '${key.value}' and no \"text\" to show instead")
+                .flatMap(t =>
+                  keptArgsWithinBounds(args).map(_ => new Message(key, Body.Unresolved(args, t)))
+                )
         yield msg
       case _ => Left("expected a message as an object")
+
+  // The arguments of a message whose key this program does not know are kept as they came, to be
+  // written out again. Hashing or writing JSON recurses per level, so their depth and size are
+  // checked here, without recursion.
+  private val MaxKeptDepth = 16
+  private val MaxKeptNodes = 100000
+
+  private def keptArgsWithinBounds(args: Json.Obj): Either[String, Unit] =
+    val pending = scala.collection.mutable.Stack[(Json, Int)](args -> 1)
+    var nodes   = 0
+    var problem = Option.empty[String]
+    while pending.nonEmpty && problem.isEmpty do
+      val (json, depth) = pending.pop()
+      nodes += 1
+      if depth > MaxKeptDepth then
+        problem = Some(s"the arguments of an unknown message nest deeper than $MaxKeptDepth")
+      else if nodes > MaxKeptNodes then
+        problem = Some(s"the arguments of an unknown message hold more than $MaxKeptNodes values")
+      else
+        json match
+          case Json.Obj(fields)  => fields.foreach((_, v) => pending.push(v -> (depth + 1)))
+          case Json.Arr(element) => element.foreach(v => pending.push(v -> (depth + 1)))
+          case _                 => ()
+    problem.toLeft(())
+
+  end keptArgsWithinBounds
 
   // A 4.x message brings its own templates: held to what a catalogue may hold.
   private val MaxLegacyTemplates = 1000
