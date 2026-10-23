@@ -1,0 +1,364 @@
+package dev.taihei.i18n
+
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
+
+import scala.annotation.{nowarn, tailrec}
+import scala.collection.mutable
+import scala.util.control.NonFatal
+
+/**
+ * An application's translations: the catalogues it has loaded, the message families it knows, and
+ * the fallbacks it chose. Messages are shown through it ([[Displayable.localize]]), and messages
+ * read from JSON look their key up in it.
+ *
+ * To show a message in language L, the first of these that has its key is used:
+ *
+ *  1. L exactly (`zh-Hant-TW`);
+ *  1. L with its last subtag removed, step by step (`zh-Hant`, then `zh`);
+ *  1. the fallbacks configured here for L, and for each of those steps, each walked the same way
+ *     (`lb` to `de`, or `pt-BR` to `pt` to `es`);
+ *  1. the family's source language, which always has it.
+ *
+ * Numbers, dates and plurals are always formatted for L, also when the template comes from a
+ * fallback. A template that does not pass the checks is skipped, with a problem in [[problems]].
+ * Showing a message never throws.
+ *
+ * In each language a template from a catalogue file wins over an inline translation; in the
+ * family's source language the template in the code wins.
+ *
+ * On the JVM a family's catalogue for a language is read from the classpath, at
+ * `META-INF/taihei-i18n/<prefix>/<language tag>.json`, the first time that language is needed.
+ * In Scala.js the application adds catalogues itself, for example with `CatalogueLoader`; until
+ * a language arrives its messages show through the fallback chain, and [[onAdded]] says when it
+ * did.
+ *
+ * {{{
+ * given Catalogues = Catalogues(Seq(Orders, Billing), fallbacks = Map(Language("lb") -> Seq(Language("de"))))
+ * }}}
+ *
+ * It is safe to use from several threads.
+ */
+final class Catalogues private (
+  fallbacks: Map[Language, Seq[Language]],
+  fromResources: Boolean,
+  registers: Boolean):
+
+  import Catalogues.*
+
+  private val state     = new AtomicReference(State.empty)
+  private val listeners = new AtomicReference(Vector.empty[(Long, Language => Unit)])
+  private val ids       = new AtomicLong(0)
+
+  /**
+   * Adds families, so that their messages can be read from JSON and their catalogue entries are
+   * checked when they are added. A family whose message is shown is added by itself.
+   */
+  def register(families: MessageFamily*): Unit =
+    families.foreach(ensureRegistered)
+
+  /** The families this registry knows. */
+  def families: List[MessageFamily] = state.get.families.values.toList.sortBy(_.prefix)
+
+  /**
+   * Adds a catalogue: its templates are used from now on, over those of an earlier catalogue in
+   * the same language. The templates of known families are checked now; a template that fails is
+   * dropped and its key falls back. Returns what was wrong, also kept in [[problems]], and tells
+   * the [[onAdded]] listeners.
+   */
+  def add(catalogue: Catalogue): List[CatalogueProblem] =
+    val found = merge(catalogue, overrideExisting = true)
+    notifyAdded(catalogue.language)
+    found
+
+  /** The languages of the catalogues held, from files or the classpath. */
+  def languages: Set[Language] = state.get.files.keySet
+
+  /**
+   * Calls `listener` with the language each time a catalogue is added, and returns the call that
+   * stops it. A Laminar application turns this into a signal and re-renders.
+   */
+  def onAdded(listener: Language => Unit): () => Unit =
+    val id = ids.incrementAndGet()
+    listeners.updateAndGet(_ :+ (id -> listener))
+    () =>
+      listeners.updateAndGet(_.filterNot(_._1 == id)); ()
+
+  /** What was wrong with the catalogues and translations so far, the first 1000. */
+  def problems: List[CatalogueProblem] = state.get.problems.toList
+
+  /** The languages tried, in order, to show a message of a family in `source` to a reader of `language`. */
+  def fallbackChain(language: Language, source: Language): List[Language] =
+    val seen                    = mutable.LinkedHashSet.empty[Language]
+    def walk(l: Language): Unit =
+      val steps = truncations(l).filter(seen.add)
+      steps.foreach(step =>
+        fallbacks.getOrElse(step, Nil).foreach(f => if seen.size < MaxChain then walk(f))
+      )
+    walk(language)
+    (seen.toList.take(MaxChain).filterNot(_ == source)) :+ source
+
+  // ---------------------------------------------------------------------------------------------
+
+  private[i18n] def definition(key: MessageKey): Option[MessageDefinition[?]] =
+    state.get.definitions.get(key)
+
+  @nowarn("cat=deprecation")
+  private[i18n] def render(message: Message, language: Language): String =
+    message.body match
+      case Message.Body.Legacy(legacyMessage) => legacyMessage.translate(language)
+      case Message.Body.Unresolved(_, text)   => text
+      case Message.Body.Defined(d, args)      =>
+        try
+          ensureRegistered(d.family)
+          val values = d.arguments
+            .zip(args)
+            .map:
+              case ((name, arg), value) => name -> arg.toFormat(value, language, this)
+            .toMap
+          fallbackChain(language, d.family.sourceLanguage).iterator
+            .flatMap(candidate => template(d, candidate))
+            .flatMap(t => MessageFormat2.tryFormat(t, values, language.tag))
+            .nextOption()
+            .getOrElse(d.template)
+        catch case NonFatal(_) => d.template
+
+  private def template(d: MessageDefinition[?], candidate: Language)
+    : Option[MessageFormat2.Message] =
+    if candidate == d.family.sourceLanguage then Some(d.parsedSource)
+    else fromFile(d, candidate).orElse(inlineTranslation(d, candidate))
+
+  private def inlineTranslation(d: MessageDefinition[?], language: Language)
+    : Option[MessageFormat2.Message] =
+    d.checkedTranslations.get(language).flatMap:
+      case Right(parsed) => Some(parsed)
+      case Left(errors)  =>
+        report(errors.map(e => templateProblem(e, language, d.key)))
+        None
+
+  private def fromFile(d: MessageDefinition[?], language: Language)
+    : Option[MessageFormat2.Message] =
+    if fromResources && !state.get.attempted((d.family.prefix, language)) then
+      loadResource(d.family, language)
+    state.get.files.get(language).flatMap(_.get(d.key)).flatMap:
+      case Entry.Valid(parsed) => Some(parsed)
+      case Entry.Invalid       => None
+      case Entry.Raw(t)        =>
+        val (entry, found) = checked(t, d, language)
+        update(s => s.copy(files = s.files.updatedWith(language)(_.map(_.updated(d.key, entry)))))
+        report(found)
+        entry match
+          case Entry.Valid(parsed) => Some(parsed)
+          case _                   => None
+
+  private def loadResource(family: MessageFamily, language: Language): Unit =
+    update(s => s.copy(attempted = s.attempted + (family.prefix -> language)))
+    PlatformCatalogueResources.read(family, language.tag) match
+      case None                => ()
+      case Some(Left(problem)) => report(List(CatalogueProblem(problem, Some(language))))
+      case Some(Right(text))   =>
+        Catalogue.parse(text) match
+          case Left(problem) => report(List(problem.copy(language = Some(language))))
+          case Right(catalogue) if catalogue.language != language =>
+            report(List(CatalogueProblem(
+              s"the file of ${family.prefix} for ${language.tag} says it is ${catalogue.language.tag}",
+              Some(language),
+            )))
+          case Right(catalogue)                                   =>
+            merge(catalogue.ofFamily(family.prefix), overrideExisting = false)
+            notifyAdded(language)
+
+  end loadResource
+
+  private def merge(catalogue: Catalogue, overrideExisting: Boolean): List[CatalogueProblem] =
+    val known   = state.get.definitions
+    val found   = List.newBuilder[CatalogueProblem]
+    found ++= catalogue.problems
+    val entries = catalogue.messages.map: (key, t) =>
+      known.get(key) match
+        case Some(d) =>
+          val (entry, problems) = checked(t, d, catalogue.language)
+          found ++= problems
+          key -> entry
+        case None    => key -> Entry.Raw(t)
+    update: s =>
+      val current = s.files.getOrElse(catalogue.language, Map.empty)
+      val merged  = if overrideExisting then current ++ entries else entries ++ current
+      s.copy(files = s.files.updated(catalogue.language, merged))
+    val all     = found.result()
+    report(all)
+    all
+
+  end merge
+
+  private def checked(
+    t: String,
+    d: MessageDefinition[?],
+    language: Language,
+  ): (Entry, List[CatalogueProblem]) =
+    val (errors, _) = MessageFormat2.check(t, d.kinds)
+    if errors.isEmpty then (Entry.Valid(MessageFormat2.parse(t).message), Nil)
+    else (Entry.Invalid, errors.map(e => templateProblem(e, language, d.key)))
+
+  private def ensureRegistered(family: MessageFamily): Unit =
+    if registers && !state.get.families.get(family.prefix).contains(family) then
+      val clash = update: s =>
+        if s.families.contains(family.prefix) then s
+        else
+          s.copy(
+            families = s.families.updated(family.prefix, family),
+            definitions = s.definitions ++ family.definitions.map(d => d.key -> d),
+          )
+      if clash.families.get(family.prefix).exists(_ ne family) then
+        report(
+          List(CatalogueProblem(s"two families have the prefix ${family.prefix}; the first is kept"))
+        )
+
+  private def update(f: State => State): State = state.updateAndGet(s => f(s))
+
+  // The source-only registry keeps nothing, so that it holds no state between callers.
+  private def report(found: List[CatalogueProblem]): Unit =
+    if found.nonEmpty && registers then
+      update: s =>
+        val fresh = found.filterNot(s.problems.contains)
+        s.copy(problems = (s.problems ++ fresh).take(MaxProblems))
+
+  private def notifyAdded(language: Language): Unit =
+    listeners.get.foreach: (_, listener) =>
+      try listener(language)
+      catch case NonFatal(_) => ()
+
+end Catalogues
+
+object Catalogues:
+
+  /**
+   * A registry that knows `families` (more are added when their messages are shown) and walks
+   * `fallbacks` after the subtags of a language. On the JVM it reads catalogues from the
+   * classpath when a language is first needed.
+   */
+  def apply(
+    families: Seq[MessageFamily] = Nil,
+    fallbacks: Map[Language, Seq[Language]] = Map.empty,
+  ): Catalogues =
+    val catalogues = new Catalogues(fallbacks, fromResources = true, registers = true)
+    catalogues.register(families*)
+    catalogues
+
+  /**
+   * What is wrong with the families and catalogues of an application, for its tests:
+   *
+   *  - every template, in the code and in each catalogue, passes the checks against the
+   *    definition of its key, the types of your own arguments included;
+   *  - every catalogue key belongs to a definition;
+   *  - every language in `required` has every key, inline or in a catalogue; other languages may
+   *    be partial and fall back;
+   *  - keys are unique across the families, and no language is given twice inline.
+   *
+   * Empty means all is well. It works with any test framework:
+   * {{{
+   * assertTrue(Catalogues.verify(Seq(Orders), catalogues, required = Set(Language.Dutch)).isEmpty)
+   * }}}
+   */
+  def verify(
+    families: Seq[MessageFamily],
+    catalogues: Seq[Catalogue],
+    required: Set[Language] = Set.empty,
+  ): List[CatalogueProblem] =
+    val found       = List.newBuilder[CatalogueProblem]
+    val definitions = mutable.LinkedHashMap.empty[MessageKey, MessageDefinition[?]]
+
+    families.groupBy(_.prefix).foreach: (prefix, fs) =>
+      if fs.distinct.size > 1 then
+        found += CatalogueProblem(s"${fs.distinct.size} families have the prefix $prefix")
+
+    families.distinct.foreach: family =>
+      family.definitions.foreach: d =>
+        definitions.get(d.key) match
+          case Some(other) if other ne d =>
+            found += CatalogueProblem("defined twice", key = Some(d.key))
+          case _                         => definitions(d.key) = d
+        val (errors, _) = MessageFormat2.check(d.template, d.kinds)
+        found ++= errors.map(e => templateProblem(e, family.sourceLanguage, d.key))
+        d.translationPairs.groupBy(_._1).foreach: (language, pairs) =>
+          if pairs.size > 1 then
+            found += CatalogueProblem("translated inline twice", Some(language), Some(d.key))
+          if language == family.sourceLanguage then
+            found += CatalogueProblem(
+              "an inline translation in the source language; the template is used",
+              Some(language),
+              Some(d.key),
+            )
+        d.translations.foreach: (language, t) =>
+          found ++= MessageFormat2.check(t, d.kinds)._1.map(e => templateProblem(e, language, d.key))
+
+    catalogues.foreach: catalogue =>
+      found ++= catalogue.problems
+      catalogue.messages.toList.sortBy(_._1.value).foreach: (key, t) =>
+        definitions.get(key) match
+          case None                                                     =>
+            found += CatalogueProblem("no message has this key", Some(catalogue.language), Some(key))
+          case Some(d) if d.family.sourceLanguage == catalogue.language => ()
+          case Some(d)                                                  =>
+            found ++= MessageFormat2.check(t, d.kinds)._1.map(e =>
+              templateProblem(e, catalogue.language, key)
+            )
+
+    required.toList.sortBy(_.tag).foreach: language =>
+      val inFiles = catalogues.filter(_.language == language).flatMap(_.messages.keys).toSet
+      definitions.values.foreach: d =>
+        if d.family.sourceLanguage != language && !d.translations.contains(language) &&
+          !inFiles(d.key)
+        then
+          found += CatalogueProblem("missing in a required language", Some(language), Some(d.key))
+
+    found.result().distinct
+  end verify
+
+  // The text of a message in its source language, without any registry: what toString shows and
+  // what the JSON encoder writes as "text".
+  @nowarn("cat=deprecation")
+  private[i18n] def sourceText(message: Message): String = message.body match
+    case Message.Body.Defined(d, _)       => sourceOnly.render(message, d.family.sourceLanguage)
+    case Message.Body.Unresolved(_, text) => text
+    case Message.Body.Legacy(l)           => l.toString
+
+  // Reads no files and keeps no families: it only ever uses the code's own templates.
+  private val sourceOnly = new Catalogues(Map.empty, fromResources = false, registers = false)
+
+  private val MaxChain    = 32
+  private val MaxProblems = 1000
+
+  private def templateProblem(
+    e: TemplateError,
+    language: Language,
+    key: MessageKey,
+  ): CatalogueProblem =
+    CatalogueProblem(s"${e.message} (at character ${e.position})", Some(language), Some(key))
+
+  // The language with its last subtag removed, step by step; a step that is no tag (a singleton
+  // left at the end) is passed over.
+  private[i18n] def truncations(language: Language): List[Language] =
+    @tailrec
+    def loop(parts: List[String], acc: List[Language]): List[Language] =
+      if parts.isEmpty then acc.reverse
+      else
+        val next = Language.parse(parts.reverse.mkString("-")).toOption.filterNot(acc.contains)
+        loop(parts.tail, next.fold(acc)(_ :: acc))
+    loop(language.tag.split('-').toList.reverse, Nil)
+
+  private enum Entry:
+    case Raw(template: String)
+    case Valid(parsed: MessageFormat2.Message)
+    case Invalid
+
+  final private case class State(
+    families: Map[String, MessageFamily],
+    definitions: Map[MessageKey, MessageDefinition[?]],
+    files: Map[Language, Map[MessageKey, Entry]],
+    attempted: Set[(String, Language)],
+    problems: Vector[CatalogueProblem])
+
+  private object State:
+    val empty: State = State(Map.empty, Map.empty, Map.empty, Set.empty, Vector.empty)
+
+end Catalogues

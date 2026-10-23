@@ -687,7 +687,7 @@ object MessageFormat2:
   final private[i18n] case class PluralSelector(value: Any, locale: String)
 
   // How a value shows in a pattern: a language by its name in the reader's language.
-  private def show(value: Any, locale: String): String = value match
+  private[i18n] def show(value: Any, locale: String): String = value match
     case PluralSelector(v, _) => v.toString
     case l: Language          => Language.nameIn(l, locale)
     case other                => other.toString

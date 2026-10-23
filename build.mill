@@ -105,6 +105,9 @@ trait TaiheiPublishSettings extends PublishModule {
   )
 }
 
+// Silences the deprecation of dev.taihei.i18n.legacy, which its tests use on purpose.
+val LegacyInTests = Seq("-Wconf:cat=deprecation&origin=dev\\.taihei\\.i18n\\.legacy\\..*:s")
+
 // ---------------------------------------------------------------------------
 // Base trait for JVM modules
 // ---------------------------------------------------------------------------
@@ -121,6 +124,9 @@ trait TaiheiModule extends ScalaModule with ScalafmtModule with ScalafixModule w
 
   trait TaiheiTests extends ScalaTests with ScalafmtModule with ScalafixModule {
     def testFramework = "zio.test.sbt.ZTestFramework"
+
+    // The tests of legacy.Message use it on purpose.
+    def scalacOptions = Task { super.scalacOptions() ++ LegacyInTests }
 
     def forkArgs = Seq(
       "-Xmx4G",
@@ -161,6 +167,9 @@ trait TaiheiJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModu
   trait TaiheiJSTests extends ScalaJSTests with ScalafmtModule with ScalafixModule {
     def testFramework = "zio.test.sbt.ZTestFramework"
 
+    // The tests of legacy.Message use it on purpose.
+    def scalacOptions = Task { super.scalacOptions() ++ LegacyInTests }
+
     def mvnDeps = Seq(
       mvn"dev.zio::zio-test::${V.zio}",
       mvn"dev.zio::zio-test-sbt::${V.zio}",
@@ -191,9 +200,20 @@ object i18n extends Module {
       mvn"dev.zio::zio-json:${V.zioJson}",
     )
 
+    // The catalogue files of CoreMessages, read from the classpath. Scala.js has no classpath:
+    // a browser application serves the files that taihei-i18n-tools exports.
+    def resources = Task.Sources(
+      wsRoot / "shared" / "resources",
+    )
+
     object test extends TaiheiTests {
       def sources = Task.Sources(
         wsRoot / "shared" / "test" / "src",
+        wsRoot / "jvm" / "test" / "src",
+      )
+
+      def resources = Task.Sources(
+        wsRoot / "jvm" / "test" / "resources",
       )
     }
   }
@@ -213,6 +233,7 @@ object i18n extends Module {
     object test extends TaiheiJSTests {
       def sources = Task.Sources(
         wsRoot / "shared" / "test" / "src",
+        wsRoot / "js" / "test" / "src",
       )
     }
   }

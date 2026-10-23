@@ -2,8 +2,6 @@ package dev.taihei.i18n
 
 import java.time.{LocalDate, LocalTime}
 
-import scala.annotation.nowarn
-
 import zio.test.*
 
 import dev.taihei.i18n.legacy.Message
@@ -13,7 +11,6 @@ import dev.taihei.i18n.legacy.Message
  * 2.0.0, taken on the JVM and in Node; German is what any language now gets instead of the
  * JVM's default locale or JavaScript's en-US.
  */
-@nowarn("cat=deprecation")
 object PlatformFormatterSpec extends ZIOSpecDefault:
 
   private val date = LocalDate.of(2026, 10, 20)

@@ -1,0 +1,164 @@
+package dev.taihei.i18n
+
+import zio.json.*
+import zio.json.ast.Json
+
+import zio.Chunk
+
+/**
+ * The MF2 templates of one language, by message key: one catalogue file, written by a translator
+ * or by `taihei-i18n-tools`.
+ *
+ * {{{
+ * {"format":1,"language":"de","messages":{"order.shipped":"...","order.cancelled":"..."}}
+ * }}}
+ *
+ * [[Catalogue.parse]] reads a file and keeps what it can: an entry that is not a key and a
+ * template is left out, and named in [[problems]].
+ */
+final class Catalogue private (
+  val language: Language,
+  val messages: Map[MessageKey, String],
+  val problems: List[CatalogueProblem]):
+
+  /** The catalogue as a format 1 file, its keys in order. */
+  def toJson: String = toJsonAst.toJson
+
+  private[i18n] def toJsonAst: Json =
+    Json.Obj(
+      "format" -> Json.Num(Catalogue.Format),
+      "language" -> Json.Str(language.tag),
+      "messages" -> Json.Obj(
+        Chunk.fromIterable(messages.toList.sortBy(_._1.value).map((k, v) => k.value -> Json.Str(v)))
+      ),
+    )
+
+  // The entries of keys that start with `prefix` and a dot; the others become problems.
+  private[i18n] def ofFamily(prefix: String): Catalogue =
+    val (own, others) = messages.partition((k, _) => k.value.startsWith(prefix + "."))
+    val foreign       = others.keys.toList.sortBy(_.value).map(k =>
+      CatalogueProblem(s"not a key of $prefix", Some(language), Some(k))
+    )
+    new Catalogue(language, own, problems ++ foreign)
+
+  override def equals(other: Any): Boolean = other match
+    case that: Catalogue => language == that.language && messages == that.messages
+    case _               => false
+
+  override def hashCode: Int = (language, messages).hashCode
+
+  override def toString: String = s"Catalogue(${language.tag}, ${messages.size} messages)"
+
+end Catalogue
+
+object Catalogue:
+
+  /** The catalogue file format this version reads and writes. */
+  val Format = 1
+
+  // A catalogue is input the application did not compile. Larger files, more messages or deeper
+  // nesting than these are refused before the JSON is parsed.
+  private[i18n] val MaxLength   = 4 * 1024 * 1024
+  private[i18n] val MaxMessages = 100000
+  private val MaxDepth          = 16
+
+  /** A catalogue of these templates, which are checked when they are first used. */
+  def apply(language: Language, messages: Map[MessageKey, String]): Catalogue =
+    new Catalogue(language, messages, Nil)
+
+  /**
+   * The catalogue in a format 1 file, or why the file is not one. It never throws: a file that is
+   * too large, too deeply nested or not JSON is refused, an entry that is not a key and a template
+   * is left out and named in the catalogue's problems.
+   */
+  def parse(json: String): Either[CatalogueProblem, Catalogue] =
+    def problem(message: String) = CatalogueProblem(message)
+    if json.length > MaxLength then Left(problem(s"a catalogue is at most $MaxLength characters"))
+    else if JsonDepth.exceeds(json, MaxDepth) then
+      Left(problem(s"a catalogue nests deeper than $MaxDepth"))
+    else
+      json.fromJson[Json] match
+        case Left(error)          => Left(problem(s"not JSON: ${Printable(error)}"))
+        case Right(obj: Json.Obj) => fromAst(obj)
+        case Right(_)             => Left(problem("a catalogue is a JSON object"))
+
+  private def fromAst(obj: Json.Obj): Either[CatalogueProblem, Catalogue] =
+    for
+      _        <- obj.get("format") match
+        case Some(Json.Num(n)) if BigDecimal(n) == BigDecimal(Format) => Right(())
+        case Some(other)                                              =>
+          Left(CatalogueProblem(s"format ${Printable(other.toString)} is not format $Format"))
+        case None => Left(CatalogueProblem("a catalogue needs \"format\""))
+      language <- obj.get("language") match
+        case Some(Json.Str(tag)) => Language.parse(tag).left.map(CatalogueProblem(_))
+        case _ => Left(CatalogueProblem("a catalogue needs \"language\", a language tag"))
+      entries  <- obj.get("messages") match
+        case Some(Json.Obj(fields)) if fields.size <= MaxMessages => Right(fields)
+        case Some(Json.Obj(_))                                    =>
+          Left(CatalogueProblem(s"a catalogue holds at most $MaxMessages messages", Some(language)))
+        case _                                                    =>
+          Left(CatalogueProblem("a catalogue needs \"messages\", an object", Some(language)))
+    yield
+      val messages = Map.newBuilder[MessageKey, String]
+      val seen     = scala.collection.mutable.HashSet.empty[String]
+      val problems = List.newBuilder[CatalogueProblem]
+      entries.foreach: (k, v) =>
+        MessageKey.parse(k) match
+          case Left(e)    => problems += CatalogueProblem(e, Some(language))
+          case Right(key) =>
+            if !seen.add(k) then
+              problems +=
+                CatalogueProblem("given twice; the first is kept", Some(language), Some(key))
+            else
+              v match
+                case Json.Str(t) if t.length <= MessageFormat2.MaxTemplateLength =>
+                  messages += key -> t
+                case Json.Str(_)                                                 =>
+                  problems += CatalogueProblem(
+                    s"a template is at most ${MessageFormat2.MaxTemplateLength} characters",
+                    Some(language),
+                    Some(key),
+                  )
+                case _                                                           =>
+                  problems += CatalogueProblem("a template is a string", Some(language), Some(key))
+      new Catalogue(language, messages.result(), problems.result())
+
+end Catalogue
+
+/**
+ * Something wrong with a catalogue or a translation: what, and where when it is known. Text from
+ * the input is escaped and cut short, so a problem can be logged as it is.
+ */
+final case class CatalogueProblem(
+  message: String,
+  language: Option[Language] = None,
+  key: Option[MessageKey] = None):
+
+  override def toString: String =
+    (language.map(_.tag).toList ++ key.map(_.value).toList ++ List(message)).mkString(": ")
+
+// Whether a JSON text nests arrays and objects deeper than a limit, found in one pass without
+// recursion, before a recursive parser sees it.
+private[i18n] object JsonDepth:
+
+  def exceeds(json: String, max: Int): Boolean =
+    var depth    = 0
+    var inString = false
+    var i        = 0
+    var deeper   = false
+    while i < json.length && !deeper do
+      val c = json(i)
+      if inString then
+        if c == '\\' then i += 1
+        else if c == '"' then inString = false
+      else if c == '"' then inString = true
+      else if c == '[' || c == '{' then
+        depth += 1
+        if depth > max then deeper = true
+      else if c == ']' || c == '}' then depth -= 1
+      i += 1
+    deeper
+
+  end exceeds
+
+end JsonDepth

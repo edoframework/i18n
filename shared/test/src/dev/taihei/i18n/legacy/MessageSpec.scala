@@ -2,15 +2,12 @@ package dev.taihei.i18n.legacy
 
 import java.time.LocalDate
 
-import scala.annotation.nowarn
-
 import zio.json.*
 import zio.test.*
 
 import dev.taihei.i18n.{CoreMessages, Language}
 
 // The 4.x Message, kept as legacy.Message until 6.0.0, behaves as it did in 4.x.
-@nowarn("cat=deprecation")
 object MessageSpec extends ZIOSpecDefault:
 
   def spec = suite("MessageSpec")(
@@ -283,7 +280,8 @@ object MessageSpec extends ZIOSpecDefault:
     ),
     suite("Message from a throwable")(
       test("carries the throwable's message") {
-        assertTrue(Message.of(new IllegalStateException("broken")).translate(Language.English) == "broken")
+        val text = Message.of(new IllegalStateException("broken")).translate(Language.English)
+        assertTrue(text == "broken")
       },
       test("a throwable without a message gives its class name instead of failing") {
         val m = Message.of(new RuntimeException())

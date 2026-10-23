@@ -4,7 +4,7 @@ import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 import zio.json.*
 
-import dev.taihei.i18n.{Language, MessageFormat2}
+import dev.taihei.i18n.*
 import dev.taihei.i18n.Language.*
 
 /** The argument values a 4.x message takes. */
@@ -25,7 +25,15 @@ type MessageArg = String | Int | Long | Double | Float | Boolean | LocalDate | L
 case class Message(
   args: List[MessageArg],
   namedArgs: Map[String, MessageArg] = Map.empty,
-  translationTemplates: Map[Language, String]):
+  translationTemplates: Map[Language, String])
+  extends Displayable:
+
+  /** The 4.x translation; a legacy message carries its own templates and needs no catalogue. */
+  def localize(
+    language: Language
+  )(
+    using catalogues: Catalogues
+  ): String = translate(language)
 
   private def message(template: String, language: Language): String =
     val positionalArgs = args.zipWithIndex.map:

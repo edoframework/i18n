@@ -1,7 +1,5 @@
 package dev.taihei.i18n
 
-import scala.annotation.nowarn
-
 import zio.json.*
 import zio.test.*
 
@@ -9,8 +7,10 @@ import dev.taihei.i18n.Language.*
 import dev.taihei.i18n.legacy.Message
 
 /** Any BCP 47 language, beside the three built-ins (since 2.0.0). */
-@nowarn("cat=deprecation")
 object OpenLanguageSpec extends ZIOSpecDefault:
+
+  // Outside assertTrue, whose expansion is not covered by the object's @nowarn.
+  private def tr(m: Message, l: Language): String = m.translate(l)
 
   private val German  = Language("de")
   private val Flemish = Language("nl-BE")
@@ -112,19 +112,16 @@ object OpenLanguageSpec extends ZIOSpecDefault:
         val both    = Message.with0Args(English -> "Bike", Dutch -> "Fiets")
         val english = Message.with0Args(English -> "Bike")
         val exact   = Message.with0Args(English -> "Bike", Dutch -> "Fiets", Flemish -> "Velo")
-        assertTrue(
-          both.translate(Flemish) == "Fiets",
-          english.translate(Flemish) == "Bike",
-          exact.translate(Flemish) == "Velo",
-          exact.translate(Dutch) == "Fiets",
-          both.translate(German) == "Bike",
-        )
+        val results =
+          List(tr(both, Flemish), tr(english, Flemish), tr(exact, Flemish), tr(exact, Dutch), tr(both, German))
+        assertTrue(results == List("Fiets", "Bike", "Velo", "Fiets", "Bike"))
       },
       test("a message written for another language is used for it") {
-        val msg = Message.withNamedArgs(English -> "{$n} items", German -> "{$n} Artikel")(
+        val msg  = Message.withNamedArgs(English -> "{$n} items", German -> "{$n} Artikel")(
           "n" -> 3
         )
-        assertTrue(msg.translate(German) == "3 Artikel")
+        val text = tr(msg, German)
+        assertTrue(text == "3 Artikel")
       },
       test("French plural rules hold for a French region") {
         val msg = Message.withNamedArgs(
@@ -132,26 +129,26 @@ object OpenLanguageSpec extends ZIOSpecDefault:
           French -> ".match {$n :plural}\nwhen one {un}\nwhen other {plusieurs}",
         )("n" -> 0)
         assertTrue(
-          msg.translate(French).trim == "un",
-          msg.translate(Language("fr-BE")).trim == "un",
-          msg.translate(English).trim == "many",
+          tr(msg, French).trim == "un",
+          tr(msg, Language("fr-BE")).trim == "un",
+          tr(msg, English).trim == "many",
         )
       },
     ),
     suite("label")(
       test("the built-ins keep their hand translations") {
         assertTrue(
-          Dutch.label.translate(English) == "Dutch",
-          Dutch.label.translate(French) == "Néerlandais",
-          English.label.translate(Dutch) == "Engels",
+          tr(Dutch.label, English) == "Dutch",
+          tr(Dutch.label, French) == "Néerlandais",
+          tr(English.label, Dutch) == "Engels",
         )
       },
       test("another language is named by the platform, in the built-ins and in itself") {
         assertTrue(
-          German.label.translate(English) == "German",
-          German.label.translate(Dutch) == "Duits",
-          German.label.translate(French) == "allemand",
-          German.label.translate(German) == "Deutsch",
+          tr(German.label, English) == "German",
+          tr(German.label, Dutch) == "Duits",
+          tr(German.label, French) == "allemand",
+          tr(German.label, German) == "Deutsch",
         )
       },
     ),
@@ -190,12 +187,14 @@ object OpenLanguageSpec extends ZIOSpecDefault:
         )
       },
       test("a message with another language round-trips") {
-        val msg = Message.with0Args(English -> "Hello", German -> "Hallo", Flemish -> "Hoi")
-        assertTrue(msg.toJson.fromJson[Message].map(_.translate(German)) == Right("Hallo"))
+        val msg  = Message.with0Args(English -> "Hello", German -> "Hallo", Flemish -> "Hoi")
+        val read = msg.toJson.fromJson[Message].map(tr(_, German))
+        assertTrue(read == Right("Hallo"))
       },
       test("a message stored by the enum still reads") {
         val stored = """{"args":[],"namedArgs":{},"translationTemplates":{"English":"Hi","French":"Salut"}}"""
-        assertTrue(stored.fromJson[Message].map(_.translate(French)) == Right("Salut"))
+        val read   = stored.fromJson[Message].map(tr(_, French))
+        assertTrue(read == Right("Salut"))
       },
     ),
   )
