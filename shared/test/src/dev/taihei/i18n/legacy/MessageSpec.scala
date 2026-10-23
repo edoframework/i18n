@@ -5,7 +5,7 @@ import java.time.LocalDate
 import zio.json.*
 import zio.test.*
 
-import dev.taihei.i18n.{CoreMessages, Language}
+import dev.taihei.i18n.Language
 
 // The 4.x Message, kept as legacy.Message until 6.0.0, behaves as it did in 4.x.
 object MessageSpec extends ZIOSpecDefault:
@@ -314,87 +314,6 @@ object MessageSpec extends ZIOSpecDefault:
               msg.translate(Language.Dutch) == "Dag",
             )
           case Left(_)    => assertTrue(false)
-      },
-    ),
-    suite("CoreMessages validation messages")(
-      test("stringShouldNotBeBlank is multilingual") {
-        val msg = CoreMessages.Validation.stringShouldNotBeBlank
-        assertTrue(
-          msg.translate(Language.English).contains("should not be blank"),
-          msg.translate(Language.Dutch).contains("mag niet leeg zijn"),
-          msg.translate(Language.French).contains("ne doit pas être vide"),
-        )
-      },
-      test("stringValidEmail is multilingual") {
-        val msg = CoreMessages.Validation.stringValidEmail
-        assertTrue(
-          msg.translate(Language.English).contains("valid email"),
-          msg.translate(Language.Dutch).contains("geldig e-mailadres"),
-          msg.translate(Language.French).contains("adresse e-mail valide"),
-        )
-      },
-      test("intMinimum generates correct message with argument") {
-        val msg = CoreMessages.Validation.intMinimum(5)
-        val en  = msg.translate(Language.English)
-        assertTrue(
-          en.contains("minimum"),
-          en.contains("5"),
-        )
-      },
-      test("intMaximum generates correct message with argument") {
-        val msg = CoreMessages.Validation.intMaximum(100)
-        val en  = msg.translate(Language.English)
-        assertTrue(
-          en.contains("maximum"),
-          en.contains("100"),
-        )
-      },
-      test("stringLengthBetween generates correct message with two arguments") {
-        val msg = CoreMessages.Validation.stringLengthBetween(5, 20)
-        val en  = msg.translate(Language.English)
-        assertTrue(
-          en.contains("between"),
-          en.contains("5"),
-          en.contains("20"),
-        )
-      },
-    ),
-    suite("CoreMessages general messages")(
-      test("helloWorld substitutes name") {
-        val msg = CoreMessages.General.helloWorld("Alice")
-        assertTrue(
-          msg.translate(Language.English).contains("Alice"),
-          msg.translate(Language.Dutch).contains("Alice"),
-          msg.translate(Language.French).contains("Alice"),
-        )
-      }
-    ),
-    suite("CoreMessages authentication messages")(
-      test("success message is available") {
-        val msg = CoreMessages.Authentication.success
-        assertTrue(msg.translate(Language.English).contains("successful"))
-      },
-      test("accountNotFound message is available") {
-        val msg = CoreMessages.Authentication.accountNotFound
-        assertTrue(msg.translate(Language.English).contains("not found"))
-      },
-    ),
-    suite("CoreMessages exception messages")(
-      test("unsupportedCommand is multilingual") {
-        val msg = CoreMessages.Exceptions.unsupportedCommand
-        assertTrue(
-          msg.translate(Language.English).contains("Unsupported"),
-          msg.translate(Language.Dutch).contains("niet ondersteund"),
-          msg.translate(Language.French).contains("non supportée"),
-        )
-      },
-      test("invalidCommand is multilingual") {
-        val msg = CoreMessages.Exceptions.invalidCommand
-        assertTrue(
-          msg.translate(Language.English).contains("Invalid"),
-          msg.translate(Language.Dutch).contains("Ongeldige"),
-          msg.translate(Language.French).contains("non valide"),
-        )
       },
     ),
     suite("Message properties")(

@@ -2,11 +2,7 @@ package dev.taihei.i18n
 
 import java.util.Locale
 
-import scala.annotation.nowarn
-
 import zio.json.*
-
-import dev.taihei.i18n.legacy.Message
 
 /**
  * A language, identified by its canonical BCP 47 tag (`en`, `nl-BE`, `de`, `zh-Hant-TW`).
@@ -19,7 +15,6 @@ import dev.taihei.i18n.legacy.Message
  * Equality and hash are by tag, so `Language("en") == English` and a `Map[Language, _]` built
  * from either finds the other.
  */
-@nowarn("cat=deprecation")
 final class Language private (val tag: String) extends Serializable:
 
   /**
@@ -38,17 +33,12 @@ final class Language private (val tag: String) extends Serializable:
   def locale: Locale = Locale.forLanguageTag(tag)
 
   /**
-   * The language's name. The built-ins carry hand translations; any other language is named by
-   * the platform (the JDK's locale data, `Intl.DisplayNames` in JavaScript) in English, Dutch,
-   * French and in itself, and falls back to its tag where the platform does not know it.
+   * The language's name, as a message in the reader's language: `Dutch.label` shows as "Dutch" to
+   * an English reader and "Néerlandais" to a French one. The built-ins carry hand translations;
+   * any other language is named by the platform (the JDK's locale data, `Intl.DisplayNames` in
+   * JavaScript), and by its tag where the platform does not know it.
    */
-  def label: Message = Language.builtInLabels.getOrElse(
-    this, {
-      val named = (Language.values.toList :+ this).distinct.map: in =>
-        in -> PlatformLanguageNames.displayName(tag, in.tag).getOrElse(tag)
-      Message.with0Args(named*)
-    },
-  )
+  def label: Message = CoreMessages.Languages.name(language = this)
 
   override def equals(other: Any): Boolean = other match
     case that: Language => tag == that.tag
@@ -64,7 +54,6 @@ final class Language private (val tag: String) extends Serializable:
 
 end Language
 
-@nowarn("cat=deprecation")
 object Language:
 
   val English: Language = new Language("en")
@@ -78,24 +67,6 @@ object Language:
 
   private val byName: Map[String, Language] =
     builtIns.map(l => builtInNames(l.tag) -> l).toMap
-
-  private lazy val builtInLabels: Map[Language, Message] = Map(
-    English -> Message.with0Args(
-      English -> "English",
-      Dutch -> "Engels",
-      French -> "Anglais",
-    ),
-    Dutch -> Message.with0Args(
-      English -> "Dutch",
-      Dutch -> "Nederlands",
-      French -> "Néerlandais",
-    ),
-    French -> Message.with0Args(
-      English -> "French",
-      Dutch -> "Frans",
-      French -> "Français",
-    ),
-  )
 
   // The built-ins' names in each built-in, by hand, as earlier versions shipped them.
   private val builtInNameTable: Map[String, Map[String, String]] = Map(

@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "language": "fr",
+  "messages": {
+    "taihei.exceptions.commandVeto": "Impossible d'exécuter la commande {$command} sur l'état {$state}",
+    "taihei.exceptions.forbidden": "Interdit: Accès refusé",
+    "taihei.exceptions.imageNotFound": "Image non trouvé",
+    "taihei.exceptions.invalidCommand": "commande non valide",
+    "taihei.exceptions.invalidQuery": "commande non valide",
+    "taihei.exceptions.mediaProcessingFailed": "Le traitement du média a échoué",
+    "taihei.exceptions.personAlreadyLinked": "Impossible de lier: la personne est déjà liée à un compte",
+    "taihei.exceptions.revisionMismatch": "Conflit de révision: la ressource a été modifiée par un autre utilisateur",
+    "taihei.exceptions.revisionMismatchBetween": "Conflit de révision: révision attendue {$expected}, mais révision actuelle est {$actual}",
+    "taihei.exceptions.unauthorized": "non autorisé",
+    "taihei.exceptions.unknownError": "erreur inconnue",
+    "taihei.exceptions.unsupportedCommand": "commande non supportée"
+  }
+}

@@ -137,18 +137,28 @@ object OpenLanguageSpec extends ZIOSpecDefault:
     ),
     suite("label")(
       test("the built-ins keep their hand translations") {
+        given Catalogues = Catalogues()
         assertTrue(
-          tr(Dutch.label, English) == "Dutch",
-          tr(Dutch.label, French) == "Néerlandais",
-          tr(English.label, Dutch) == "Engels",
+          Dutch.label.localize(English) == "Dutch",
+          Dutch.label.localize(French) == "Néerlandais",
+          English.label.localize(Dutch) == "Engels",
         )
       },
       test("another language is named by the platform, in the built-ins and in itself") {
+        given Catalogues = Catalogues()
         assertTrue(
-          tr(German.label, English) == "German",
-          tr(German.label, Dutch) == "Duits",
-          tr(German.label, French) == "allemand",
-          tr(German.label, German) == "Deutsch",
+          German.label.localize(English) == "German",
+          German.label.localize(Dutch) == "Duits",
+          German.label.localize(French) == "allemand",
+          German.label.localize(German) == "Deutsch",
+          German.label.localize(Language("ja")) == "ドイツ語",
+        )
+      },
+      test("a label is a message that travels as its key and the language") {
+        given Catalogues = Catalogues(CoreMessages.families)
+        assertTrue(
+          German.label.toJson == """{"key":"taihei.language.name","args":{"language":"de"},"text":"German"}""",
+          German.label.toJson.fromJson[dev.taihei.i18n.Message].map(_.localize(French)) == Right("allemand"),
         )
       },
     ),

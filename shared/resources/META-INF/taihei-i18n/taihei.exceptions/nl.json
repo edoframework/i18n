@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "language": "nl",
+  "messages": {
+    "taihei.exceptions.commandVeto": "Kan opdracht {$command} niet uitvoeren op status {$state}",
+    "taihei.exceptions.forbidden": "Verboden: Toegang geweigerd",
+    "taihei.exceptions.imageNotFound": "Afbeelding niet gevonden",
+    "taihei.exceptions.invalidCommand": "Ongeldige opdracht",
+    "taihei.exceptions.invalidQuery": "Ongeldige opdracht",
+    "taihei.exceptions.mediaProcessingFailed": "Mediaverwerking mislukt",
+    "taihei.exceptions.personAlreadyLinked": "Kan niet koppelen: persoon is al gekoppeld aan een account",
+    "taihei.exceptions.revisionMismatch": "Revisie mismatch: de resource werd gewijzigd door een andere gebruiker",
+    "taihei.exceptions.revisionMismatchBetween": "Revisie mismatch: verwachte revisie {$expected}, maar huidige revisie is {$actual}",
+    "taihei.exceptions.unauthorized": "Geen toegang",
+    "taihei.exceptions.unknownError": "Onbekende fout",
+    "taihei.exceptions.unsupportedCommand": "Operatie niet ondersteund"
+  }
+}
