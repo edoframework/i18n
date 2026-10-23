@@ -6,7 +6,7 @@ written next to the code it describes.
 ```
 docs/skill/
   SKILL.md            # the skill itself (frontmatter, a lean overview and an index)
-  reference/*.md      # detailed reference per area, loaded on demand
+  reference/*.md      # detailed reference per area (core, catalogues, messageformat2, coremessages, formatting, migration)
 ```
 
 ## Editing

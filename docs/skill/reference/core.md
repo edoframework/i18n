@@ -1,6 +1,6 @@
-# core — Language & Message
+# core - Language, message families, Message and Text
 
-Package `dev.taihei.i18n`. The two value types you work with directly.
+Package `dev.taihei.i18n`.
 
 ## Language
 
@@ -18,14 +18,15 @@ Language("nl-BE").base     // Dutch
 Language("en") == English  // equality and hash by tag
 ```
 
-- `.tag` / `.isoCode: String` — the canonical tag (`"en"`, `"nl-BE"`, `"zh-Hant-TW"`).
-- `.base: Language` — without script, region or variant (`nl-BE` gives `nl`).
-- `.locale: java.util.Locale` — `Locale.forLanguageTag(tag)`.
-- `.isDefault: Boolean` — true for `English`.
-- `.label: Message` — the language's name: hand translations for the built-ins;
-  for any other language the platform's names (JDK locale data, `Intl.DisplayNames`
-  in JS) in English, Dutch, French and in the language itself.
-- `.toString` — `"English"`, `"Dutch"`, `"French"` for the built-ins, else the tag.
+- `.tag` / `.isoCode: String` - the canonical tag (`"en"`, `"nl-BE"`, `"zh-Hant-TW"`).
+- `.base: Language` - without script, region or variant (`nl-BE` gives `nl`).
+- `.locale: java.util.Locale` - `Locale.forLanguageTag(tag)`.
+- `.isDefault: Boolean` - true for `English`.
+- `.label: Message` - the language's name as a message of the family
+  `CoreMessages.Languages`: hand translations for the built-ins, the platform's names
+  (JDK locale data, `Intl.DisplayNames` in JS) for any other language, in any reader's
+  language (`German.label.localize(Language("ja"))` is `ドイツ語`).
+- `.toString` - `"English"`, `"Dutch"`, `"French"` for the built-ins, else the tag.
 
 Companion:
 
@@ -45,66 +46,84 @@ works, but add `case _` for every other language. `ordinal` and `fromOrdinal` ar
 gone.
 
 Codecs (given): `JsonCodec`, `JsonEncoder` and `JsonDecoder[Language]`, and
-`JsonFieldEncoder`/`JsonFieldDecoder` (so `Language` works as a JSON **map key**,
-which is how `Message` stores its per-language templates). A built-in is written by
+`JsonFieldEncoder`/`JsonFieldDecoder` (so `Language` works as a JSON map key). A built-in is written by
 its name (`"English"`), any other language by its tag (`"de"`); both forms are read.
 
-## Message
-
-A `Message` is a bundle of per-language templates plus the arguments to splice in
-— a translatable value you pass instead of a bare `String`.
+## Message families
 
 ```scala
-final case class Message(
-  args: List[MessageArg],
-  namedArgs: Map[String, MessageArg] = Map.empty,
-  translationTemplates: Map[Language, String])
+import java.time.LocalDate
+import dev.taihei.i18n.*
+import dev.taihei.i18n.Language.*
+
+object Orders extends MessageFamily("order"):              // prefix; source language English
+  val cancelled = message("Your order was cancelled", Dutch -> "Uw bestelling werd geannuleerd")
+  val shipped   = message[(count: Int, on: LocalDate)](
+    ".match {$count :plural} when one {One item shipped on {$on :date dateStyle=long}} " +
+      "when * {{$count} items shipped on {$on :date dateStyle=long}}",
+  )
+
+Orders.cancelled                       // a Message, key "order.cancelled"
+Orders.shipped(count = 3, on = today)  // a Message, key "order.shipped", two arguments
+Orders.shipped(3, today)               // the same, by position
 ```
 
-`MessageArg` is the union of substitutable types:
+- `abstract class MessageFamily(prefix: String, sourceLanguage: Language = English)`. The prefix
+  is parts of an ASCII letter followed by letters, digits and `_`, joined by dots; another prefix
+  throws `IllegalArgumentException` when the object is first used.
+- `protected transparent inline def message[A <: AnyNamedTuple](inline template: String, inline translations: (Language, String)*)`:
+  only as the right-hand side of a `val` in the family's body. Without a type argument it is a
+  `Message`; with a named tuple it is a `MessageDefinition[A]` whose `apply` takes the arguments
+  by name or position, checked by the compiler.
+- The key is `prefix + "." + valName`. Keep it stable: it is the wire contract.
+- `family.definitions: List[MessageDefinition[?]]`, in order.
+- `MessageDefinition`: `key: MessageKey`, `family`, `template` (source), `translations:
+  Map[Language, String]` (inline), `argumentNames: List[String]`.
+
+### Compile-time checks (the macro)
+
+For the template and every inline translation that is a literal: valid MF2; every variable an
+argument or declared before use; `:number`, `:integer`, `:plural` only on `Int`, `Long`, `Double`,
+`Float`; `:datetime` on `LocalDate`, `LocalDateTime`, `LocalTime`; `:date` on `LocalDate` and
+`LocalDateTime`; `:time` on `LocalTime` and `LocalDateTime`; a `.match` needs `when * {...}`;
+argument names are identifiers. An unused argument is a warning. A template that is not a literal
+does not compile. A non-literal inline translation, and the functions of a user type, are checked
+by `Catalogues.verify` at test time.
+
+### Arguments: `MessageArg[A]`
+
+Givens for `String`, `Int`, `Long`, `Double`, `Float`, `Boolean`, `LocalDate`, `LocalDateTime`,
+`LocalTime`, `Language` (shown as its name in the reader's language, sent as its tag), `Message`,
+`Text`, `Displayable` (nested, shown in the reader's language), `Option[A]` (`None` shows as empty
+text and may be missing on the wire) and `List[A]` (joined with `, `). Your own type:
 
 ```scala
-type MessageArg = String | Int | Long | Double | Float | Boolean
-                | java.time.LocalDate | java.time.LocalDateTime | java.time.LocalTime
+given MessageArg[OrderId] = MessageArg.as[OrderId, String](_.value, s => Right(OrderId(s)))
 ```
 
-### Building a Message
+## Displayable, Message, Text
 
-| Factory | Use |
+- `abstract class Displayable` (not extendable outside the library):
+  `localize(language: Language)(using Catalogues): String`.
+- `final class Message`: `key: MessageKey`, `localize`, `toString` (source language), equality by
+  key and argument values. A message read from 4.x JSON has the key `legacy`.
+- `final case class Text(value: String, language: Language)`: shown as it is. `Text.of(throwable)`
+  gives the throwable's message in English, or its class name when it has none.
+- `opaque type MessageKey`: `MessageKey.parse(s): Either[String, MessageKey]`, `key.value`.
+
+## JSON
+
+| Value | Shape |
 | --- | --- |
-| `Message.with0Args(translations: (Language, String)*)` | a static message, no substitution |
-| `Message.withNamedArgs(translations: (Language, String)*)(arguments: (String, MessageArg)*)` | **preferred** — `{$name}` placeholders bound to named args |
-| `Message.of(value: String)` | wrap a plain string as an English-only message |
-| `Message.of(t: Throwable)` | a message from an exception's text; `toString` (the class name) when it has no message |
+| `Message` | `{"key":"order.shipped","args":{"count":3,"on":"2026-10-23"},"text":"3 items shipped on October 23, 2026"}` |
+| `Text` | `{"text":"Disk full","language":"en"}` |
 
-```scala
-Message.with0Args(
-  Language.English -> "Saved",
-  Language.Dutch   -> "Opgeslagen",
-  Language.French  -> "Enregistré",
-)
-
-Message.withNamedArgs(
-  Language.English -> "{$count} results for {$query}",
-)("count" -> 12, "query" -> "fish")
-```
-
-> The positional `with1Arg` … `with10Args` factories return curried
-> `(A, B, …) => Message` builders and are **deprecated** — use `withNamedArgs`.
-
-### Rendering & inspecting
-
-| Method | Result |
-| --- | --- |
-| `translate(language: Language): String` | render in that language |
-| `render(language: Language): String` | alias for `translate` |
-| `nonEmpty: Boolean` | true if the rendered translation is non-empty |
-| `toString: String` | the English translation (for logging) |
-
-Placeholders are `{$name}`; `:number` / `:datetime` function annotations on a
-placeholder route through the platform formatters (see `formatting.md`). Missing a
-template for a requested language falls back to the default (English).
-
-Codecs (given): `JsonCodec[Message]` (serializes `args` + `namedArgs` +
-`translationTemplates`, so the message stays translatable after a round-trip), and
-`JsonEncoder`/`JsonDecoder[MessageArg]` (args coerced to/from strings).
+- Encoders: `given JsonEncoder[Message]` writes `text` (the source-language rendering);
+  `Message.encoder(withText = false)` does not. `JsonEncoder[Text]`, `JsonEncoder[Displayable]`.
+- Decoders need `given Catalogues`: `JsonDecoder[Message]`, `JsonCodec[Message]`,
+  `JsonDecoder[Displayable]`. The key is looked up among the registry's families; an unknown key
+  reads as its `text` (shown as is, re-encoded unchanged), and is an error without one. A missing
+  argument is an error unless it is an `Option`. The 4.x shape reads as a legacy message.
+- Limits: 8 levels of nested messages, 10000 list elements.
+- Rules: a key is a contract; adding an argument means a new key unless it is an `Option`;
+  removing or retyping one means a new key; the envelope is format 1 of 5.x.

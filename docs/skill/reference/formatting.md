@@ -1,54 +1,36 @@
-# formatting — cross-platform formatters & build
+# formatting - platforms, cross-platform rules, build
 
-Package `dev.taihei.i18n`. Locale-aware number/date formatting is abstracted behind two
-objects with identical signatures on both platforms, so `shared/` code (and the
-`:number` / `:datetime` MessageFormat functions) formats the same way on the JVM
-and in the browser.
+Locale-aware formatting runs through internal platform objects (`private[i18n]` since 5.0.0): you
+format through templates (`:number`, `:integer`, `:datetime`, `:date`, `:time`) in messages or
+`MessageFormat2.format`.
 
-## The contract (same on JVM and JS)
+| Platform | Numbers | Dates and times | Language names | Catalogues |
+| --- | --- | --- | --- | --- |
+| JVM (`jvm/`) | `java.text.NumberFormat` | `java.time.format.DateTimeFormatter` | JDK locale data | classpath resources |
+| Scala.js (`js/`) | `Intl.NumberFormat` | `Intl.DateTimeFormat` | `Intl.DisplayNames` | `CatalogueLoader` over `fetch` |
 
-```scala
-object PlatformNumberFormatter:
-  def formatNumber(value: Double, style: Option[String], locale: String): String
-
-object PlatformDateTimeFormatter:
-  def formatDateTime(value: Any, options: Map[String, String], locale: String): String
-```
-
-- `locale` is `"en" | "nl" | "fr"`.
-- Number `style`: `Some("percent")`, `Some("currency")`, or `None` (decimal).
-- DateTime `options`: e.g. `"dateStyle" -> "short" | "medium" | "long" | "full"`. On the JVM a `long` or `full` `timeStyle` on a time without a zone formats as `medium`. On both platforms styles are case-insensitive and an unknown style gives `medium`.
-
-| Platform | Numbers | Dates/times | Locale mapping |
-| --- | --- | --- | --- |
-| **JVM** (`jvm/`) | `java.text.NumberFormat` | `java.time.format.DateTimeFormatter` | `en→Locale.US`, `nl→nl-NL`, `fr→Locale.FRANCE` |
-| **Scala.js** (`js/`) | `Intl.NumberFormat` (native facade) | `Intl.DateTimeFormat` (native facade) | `en→en-US`, `nl→nl-NL`, `fr→fr-FR` |
-
-You normally don't call these directly — they're invoked by the `:number` /
-`:datetime` annotations in `Message` templates and `MessageFormat2.format`. Call
-them directly only when you need a one-off formatted value outside a template.
+- Bare `en`, `nl`, `fr` format as `en-US`, `nl-NL`, `fr-FR`; any other valid tag as written; a tag
+  the platform cannot use formats as `en-US`.
+- On the JVM a long or full `timeStyle` on `LocalTime`/`LocalDateTime` formats as medium (they have
+  no zone); Scala.js prints the runtime's zone.
+- `:number style=currency` always formats USD.
 
 ## Cross-platform rules
 
-- **`shared/src`** must compile on Scala.js — use only `java.time` types backed by
-  scala-java-time (`LocalDate`, `LocalDateTime`, `LocalTime` are fine), no
-  JVM-only APIs. Anything platform-specific belongs in `jvm/src` or `js/src` as a
-  matching `object` with the same signature.
-- On JS, `java.time` is provided by `scala-java-time` (+ tzdb for zone data) — both
-  are already wired into the `js` module's deps.
+- `shared/src` compiles on Scala.js: `java.time` through scala-java-time, no JVM-only API.
+- Platform differences live in `jvm/src` and `js/src` behind objects with the same signature.
 
-## Build & layout
+## Build and layout
 
 ```
-shared/src/dev/taihei/i18n/   Language, Message, MessageFormat2, CoreMessages
-jvm/src/dev/taihei/i18n/      PlatformNumberFormatter, PlatformDateTimeFormatter (java.*)
-js/src/dev/taihei/i18n/       PlatformNumberFormatter, PlatformDateTimeFormatter (Intl)
-shared/test/src/dev/taihei/i18n/  specs (run on both platforms)
+shared/src/dev/taihei/i18n/          Language, MessageFamily, Message/Text, MessageArg, Catalogue(s), MessageFormat2, CoreMessages, the macro
+shared/src/dev/taihei/i18n/legacy/   the 4.x Message, deprecated until 6.0.0
+shared/resources/META-INF/taihei-i18n/   CoreMessages' Dutch and French catalogues
+jvm/src, js/src                      platform formatters; ClasspathCatalogues (JVM), CatalogueLoader (JS)
+tools/src                            taihei-i18n-tools: ExportCatalogues
 ```
 
-- `make compile` / `make test` cover both platforms (`./mill __.compile`,
-  `./mill __.test.testForked` → `i18n.jvm` **and** `i18n.js`; JS tests run on Node).
-- Single-platform: `./mill i18n.jvm.test` or `./mill i18n.js.test`.
-- Released from the Makefile (`make release-prepare TYPE=…` →
-  `make release-finalize`), the version taken from the git tag, as in the other
-  Taihei Framework libraries.
+- `make validate`: scalafix, scalafmt, compile, tests on the JVM and Node, MiMa against the newest
+  release of the current major line.
+- Released from the Makefile (`make release-prepare TYPE=...`, `make release-finalize`), the
+  version from the git tag; one release publishes `taihei-i18n` and `taihei-i18n-tools`.

@@ -1,67 +1,61 @@
-# messageformat2 — ICU MessageFormat 2.0
+# messageformat2 - ICU MessageFormat 2.0
 
-Package `dev.taihei.i18n`. A standalone implementation of the ICU MessageFormat 2.0
-template language — variable substitution, formatting functions, and locale-aware
-plural/select matching.
-
-## Entry point
+Package `dev.taihei.i18n`. The template language of every message, and a formatter you can call
+on a raw template.
 
 ```scala
 object MessageFormat2:
-  def format(
-    template: String,
-    args: Map[String, Any] = Map.empty,
-    locale: String = "en",   // "en" | "nl" | "fr"
-  ): String
+  def format(template: String, args: Map[String, Any] = Map.empty, locale: String = "en"): String
+  def validate(template: String): List[TemplateError]
+
+final case class TemplateError(position: Int, message: String)
 ```
 
-`Message` uses the same placeholder/function syntax internally, so most of the
-time you write templates inside `Message.withNamedArgs(...)` rather than calling
-`MessageFormat2.format` directly. Reach for `format` when you have a raw template
-string and an argument map.
+- `format` never throws; a variable without a value shows as `$name`; `locale` is a BCP 47 tag.
+- `validate` reports syntax errors, unknown functions, a `.match` without a `*` variant, a variant
+  with the wrong number of keys, and text after the pattern. A template over 64K characters is
+  refused unparsed. Which variables exist is checked by a message definition, not here.
+- The parser, AST and evaluation are internal.
 
-## Placeholders
+## Placeholders and functions
 
 | Syntax | Effect |
 | --- | --- |
-| `{$name}` | substitute the variable `name` |
-| `{$value :number}` | format as a locale number (→ `PlatformNumberFormatter`) |
-| `{$value :number style=currency}` | currency formatting |
-| `{$value :number style=percent}` | percent formatting |
-| `{$date :datetime}` | format as date/time (→ `PlatformDateTimeFormatter`) |
-| `{$date :datetime dateStyle=short}` | date style: `short` \| `medium` \| `long` \| `full` (case-insensitive; an unknown style gives `medium`) |
+| `{$name}` | the variable; a `Language` shows as its name in the reader's language |
+| `{$n :number}` | a number for the locale; `style=percent`, `style=currency` (USD) |
+| `{$n :integer}` | rounded to a whole number |
+| `{$d :datetime dateStyle=long timeStyle=short}` | a date and/or time; styles `short`, `medium`, `long`, `full`, any case, unknown gives `medium` |
+| `{$d :date dateStyle=long}` | the date part (of a `LocalDate` or `LocalDateTime`) |
+| `{$t :time}` | the time part (of a `LocalTime` or `LocalDateTime`) |
+| `{$x :string}` | the value as text |
+
+A bare `{name}` formats as a variable for compatibility, but `validate` refuses it: write `{$name}`
+or a literal `{(text)}`.
 
 ## Declarations
 
 | Syntax | Effect |
 | --- | --- |
-| `.input {$var}` | declare an input variable |
-| `.input {$var :function options}` | declare with a function annotation |
-| `.let {$local = (literal)}` | bind a local variable |
+| `.input {$n :number}` | an argument, with a function applied |
+| `.local $x = {$n :number}` | a local variable (also `.local {$x = (text)}` and `.let`) |
 
-## Matching (plural / select)
+After declarations, a simple pattern ends at the line break.
+
+## Matching
 
 ```
-.match {$count :plural}
-when one   {You have one item}
-when other {You have {$count} items}
+.match {$count :plural} when =0 {No messages} when one {One message} when * {{$count} messages}
 ```
 
-- `.match {$selector}` — single selector; `.match {$a} {$b}` — multiple.
-- `when key { pattern }` — a case; `when * { pattern }` — wildcard (matches all).
-- Plural keys: `one`, `other`, and exact matches `=0`, `=1`, …. An exact-match key that is not a
-  number in `Int` range (`=abc`, `99999999999`) matches nothing and does not throw.
-- **Locale-aware plurals:** French treats `0` and `1` as `one`; English and Dutch
-  treat only `1` as `one`. Always pass the right `locale` so selection is correct.
+- One or more `{selector}`s; variants `when <keys> {pattern}`, one key per selector, on one line
+  or on several.
+- A `when * {...}` variant (every key `*`) is required by `validate` and the macro.
+- Plural keys: `one`, `other`, exact `=0`, `=1`, `2`, any number. French treats 0 and 1 as `one`;
+  English and Dutch only 1. A key that is not a number in `Int` range matches nothing.
+- A `.match` on a `Language` compares its tag (`when nl {...}`).
+- Functions inside variant patterns format (`when * {{$n} on {$d :date}}`).
 
-```scala
-val tmpl =
-  """.match {$count :plural}
-    |when =0    {No messages}
-    |when one   {One message}
-    |when other {{$count} messages}""".stripMargin
+## Platform notes
 
-MessageFormat2.format(tmpl, Map("count" -> 0), "en")  // No messages
-MessageFormat2.format(tmpl, Map("count" -> 1), "fr")  // One message  (fr: 1 → one)
-MessageFormat2.format(tmpl, Map("count" -> 3), "en")  // 3 messages
-```
+On the JVM a long or full `timeStyle` on a value without a time zone formats as medium; Scala.js
+prints the runtime's zone. Bare `en`, `nl`, `fr` format as US, NL and FR.

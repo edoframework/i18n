@@ -1,8 +1,8 @@
 # Taihei Framework i18n
 
-A composable, type-safe internationalization library for Scala 3 — locales,
-translatable messages, ICU MessageFormat 2.0, and locale-aware number/date
-formatting. Cross-compiled for the **JVM and Scala.js**.
+A type-safe internationalization library for Scala 3: languages, typed message families
+checked when the code compiles, per-language catalogues, ICU MessageFormat 2.0, and
+locale-aware number and date formatting. Cross-compiled for the **JVM and Scala.js**.
 
 Part of the [Taihei Framework](https://taihei.dev), the open-source Scala 3
 libraries from Innovenso. The package is `dev.taihei.i18n`.
@@ -11,19 +11,25 @@ libraries from Innovenso. The package is `dev.taihei.i18n`.
 
 Published on Maven Central under `dev.taihei`:
 
-| Artifact                | Platform | Purpose                                              |
-| ----------------------- | -------- | ---------------------------------------------------- |
-| `taihei-i18n`           | JVM      | The full library on `java.time` / `java.text`.       |
-| `taihei-i18n_sjs1`      | Scala.js | The same API, formatting via the browser `Intl` API. |
+| Artifact                | Platform | Purpose                                                       |
+| ----------------------- | -------- | ------------------------------------------------------------- |
+| `taihei-i18n`           | JVM      | The library on `java.time` / `java.text`.                     |
+| `taihei-i18n_sjs1`      | Scala.js | The same API, formatting via the browser `Intl` API.          |
+| `taihei-i18n-tools`     | JVM      | A program that exports catalogue files for translators and browsers. |
 
 ```scala
-mvn"dev.taihei::taihei-i18n:4.0.1"     // Mill, JVM
-mvn"dev.taihei::taihei-i18n::4.0.1"    // Mill, Scala.js
-"dev.taihei" %%% "taihei-i18n" % "4.0.1" // sbt
+mvn"dev.taihei::taihei-i18n:5.0.0"          // Mill, JVM
+mvn"dev.taihei::taihei-i18n::5.0.0"         // Mill, Scala.js
+mvn"dev.taihei::taihei-i18n-tools:5.0.0"    // Mill, the export program
+"dev.taihei" %%% "taihei-i18n" % "5.0.0"      // sbt
+"dev.taihei" %% "taihei-i18n-tools" % "5.0.0" // sbt
 ```
 
 The `shared/` sources compile on both platforms; `jvm/` and `js/` hold only the
-platform-specific number/date formatters.
+platform-specific formatters and the loading of catalogues.
+
+5.0.0 is a major release: see [Migrating from 4.x](#migrating-from-4x). 4.0.x receives
+security fixes for 12 months after the release of 5.0.0.
 
 ## Stack
 
@@ -42,7 +48,7 @@ make test           # ./mill __.test.testForked    (JVM + JS; JS runs on Node)
 make fmt            # ./mill __.reformat
 make fix            # ./mill __.fix                 (scalafix)
 make validate       # fix + fmt + compile + test + mima
-make mima           # binary compatibility with the newest release tag
+make mima           # binary compatibility with the newest release of the current major
 make publishLocal   # to ~/.ivy2/local (a SNAPSHOT only)
 ```
 
@@ -59,7 +65,8 @@ git push origin main && git push origin vX.Y.Z # only after the publish succeede
 make publish-dry-run                           # the signed bundle, written to out/
 ```
 
-Publishing reads the Central Portal user token and the release key from
+One release publishes `taihei-i18n` (JVM and Scala.js) and `taihei-i18n-tools` with the same
+version. Publishing reads the Central Portal user token and the release key from
 `~/.edo-release.env` or the environment (`MILL_SONATYPE_USERNAME`,
 `MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`, `MILL_PGP_PASSPHRASE`).
 Releases are signed by the Taihei Framework release key, fingerprint
@@ -70,12 +77,13 @@ key is published on keyserver.ubuntu.com and keys.openpgp.org.
 
 ## Coming from edo-i18n 3.0.0 or genius-i18n
 
-From 4.0.0 on, the library has the API of `com.edoframework::edo-i18n:3.0.0` under its new name:
+4.0.x has the API of `com.edoframework::edo-i18n:3.0.0` under its new name:
 
 - the dependency is `dev.taihei::taihei-i18n`;
 - the package is `dev.taihei.i18n`: replace `com.edoframework.i18n` in your imports.
 
-Coming from `fish.genius::genius-i18n:2.0.0`, replace `genius.i18n` instead. 3.0.0 also
+Coming from `fish.genius::genius-i18n:2.0.0`, replace `genius.i18n` instead. Move to 4.0.1
+first, then to 5.0.0 as [below](#migrating-from-4x). 3.0.0 also
 moved to Scala 3.9 (LTS), so your build needs Scala 3.9 or later, to `zio-json` 1.1
 instead of 0.9, and to the Apache License 2.0.
 
@@ -87,54 +95,276 @@ There is no patch under the old coordinates.
 ## Quick start
 
 ```scala
+import java.time.LocalDate
 import dev.taihei.i18n.*
+import dev.taihei.i18n.Language.*
 
-// A translatable message with named placeholders:
-val greeting = Message.withNamedArgs(
-  Language.English -> "Hello {$name}, you have {$points} points",
-  Language.Dutch   -> "Hallo {$name}, u hebt {$points} punten",
-  Language.French  -> "Bonjour {$name}, vous avez {$points} points",
-)("name" -> "Alice", "points" -> 150)
+object Orders extends MessageFamily("order"):
+  val cancelled = message("Your order was cancelled", Dutch -> "Uw bestelling werd geannuleerd")
+  val shipped   = message[(count: Int, on: LocalDate)](
+    ".match {$count :plural} when one {One item shipped on {$on :date dateStyle=long}} " +
+      "when * {{$count} items shipped on {$on :date dateStyle=long}}",
+    Dutch -> (".match {$count :plural} when one {Eén artikel verzonden op {$on :date dateStyle=long}} " +
+      "when * {{$count} artikels verzonden op {$on :date dateStyle=long}}"),
+  )
 
-greeting.translate(Language.English)  // Hello Alice, you have 150 points
-greeting.translate(Language.French)   // Bonjour Alice, vous avez 150 points
+given Catalogues = Catalogues(Seq(Orders))
+
+val shipped = Orders.shipped(count = 3, on = LocalDate.of(2026, 10, 23))
+shipped.localize(English)          // 3 items shipped on October 23, 2026
+shipped.localize(Dutch)            // 3 artikels verzonden op 23 oktober 2026
+shipped.localize(Language("de"))   // 3 items shipped on 23. Oktober 2026
 ```
 
-`Language` is identified by its BCP 47 tag. `English`, `Dutch` and `French` are
-built in; any other language is `Language("de")` or `Language("nl-BE")`, and
-`Language.of(tag)` parses a tag, falling back to English only for invalid input. A
-message without a translation for a language falls back to its base language
-(`nl-BE` to `nl`), then to English; numbers and dates format in the language's
-locale. Both `Language` and `Message` have `zio-json` codecs, so messages serialize
-cleanly across a wire (a built-in as `"English"`, any other language as its tag).
+## Messages
 
-Since 2.0.0 `Language` is a class, not an enum: `case English =>` still matches,
-but a `match` on a language needs a `case _`, and `ordinal`/`fromOrdinal` are gone.
-`isoCode` is the full tag, so it is `"nl-BE"` for Belgian Dutch: compare
-`base.isoCode` where only the language matters. `Language.of` reads tags, not the
-names `"English"`/`"Dutch"`/`"French"` (that is `valueOf`).
+A **message family** is an object that groups messages under a key prefix and names its
+**source language**, English unless it says otherwise (`MessageFamily("order", sourceLanguage =
+Dutch)`). Each message is a `val` defined with `message`:
 
-### ICU MessageFormat 2.0
+- `message("text", translations*)` is a `Message` without arguments;
+- `message[(count: Int, on: LocalDate)]("template", translations*)` is a `MessageDefinition`.
+  Applied to its arguments, by name or by position, it gives a `Message`:
+  `Orders.shipped(count = 3, on = today)`. The compiler checks the names and the types.
+
+The key of a message is the prefix, a dot and the val's name: `order.shipped`. A `Message` is
+that key and the argument values, nothing else; its translations stay in the family and in
+catalogues.
+
+**Checked when the code compiles**, by a macro inside the library (no build plugin, any build
+tool), for the template and every inline translation written as a literal: the template is valid
+MF2; every variable is an argument or a `.local` declared before it; `:number`, `:integer` and
+`:plural` apply to numbers, `:datetime` to dates and times, `:date` and `:time` to their part; a
+`.match` has a `*` variant; argument names are valid. An argument a template does not use is a
+warning, because some languages leave out what others say.
+
+**Arguments** are typed. `MessageArg[A]` exists for `String`, `Int`, `Long`, `Double`, `Float`,
+`Boolean`, `LocalDate`, `LocalDateTime`, `LocalTime`, `Language` (shown as its name in the
+reader's language), a nested `Message`, `Text` or `Displayable` (shown in the reader's language),
+and `Option` and `List` of these. A type of your own goes through one of them:
 
 ```scala
-val tmpl =
-  """.match {$count :plural}
-    |when one   {You have one item}
-    |when other {You have {$count} items}""".stripMargin
+final case class OrderId(value: String)
+given MessageArg[OrderId] = MessageArg.as[OrderId, String](_.value, s => Right(OrderId(s)))
+```
+
+The functions of your own types are checked by `Catalogues.verify` in your tests, not by the
+compiler.
+
+**Text** is text in one language that is not a message of a family: an exception's message,
+or a text a server already translated. `Text.of(throwable)`, `Text("Disk full", English)`. It shows
+as it is, whatever the reader's language. `Message`, `Text` and the 4.x `legacy.Message` share the
+supertype `Displayable`, shown with `localize(language)` and a `Catalogues` in scope.
+
+## Translations and the fallback chain
+
+Translations come from two places, both checked the same way:
+
+- **Inline**, as trailing `Language -> template` pairs of `message`. They suit a JVM application,
+  a library's own few languages, and tests. Inline translations are code: **in Scala.js they are
+  part of the bundle.** A browser application with many languages keeps them in files.
+- **Catalogue files**, one per language, written by translators or exported:
+  `{"format":1,"language":"de","messages":{"order.shipped":"...","order.cancelled":"..."}}`.
+
+To show a message in language L, a `Catalogues` registry uses the first of these that has the key:
+
+1. L exactly (`zh-Hant-TW`);
+2. L with its last subtag removed, step by step (`zh-Hant`, then `zh`);
+3. the fallbacks configured for L, each walked the same way:
+   `Catalogues(families, fallbacks = Map(Language("lb") -> Seq(Language("de"))))`;
+4. the family's source language, which always has it.
+
+Numbers, dates and plurals are formatted for L, also when the template comes from a fallback. A
+catalogue template wins over an inline one; in the source language the template in the code wins.
+A template that fails its checks is skipped and named in `catalogues.problems`. Showing a message
+never throws.
+
+### On the JVM
+
+A library or application ships its catalogues as resources:
+`META-INF/taihei-i18n/<family prefix>/<language tag>.json`, for example
+`META-INF/taihei-i18n/order/de.json`. The registry reads a family's file for a language the first
+time that language is needed, and keeps it. Nothing needs to be configured.
+
+### In Scala.js
+
+The bundle holds the definitions and the source-language templates: one language, not all of
+them. The application serves the per-language files that the export writes, and loads a language
+with `CatalogueLoader.load(catalogues, language, url)`, which returns a `Future` with what went
+wrong, if anything. Until a language arrives, its messages show through the fallback chain;
+`catalogues.onAdded` says when it did. The library has no dependency on Laminar or on an effect
+library. A Laminar application turns the callback into a signal:
+
+```scala
+import scala.concurrent.ExecutionContext.Implicits.global
+import com.raquo.laminar.api.L.*
+
+val catalogues       = Catalogues(Seq(Orders) ++ CoreMessages.families)
+given Catalogues     = catalogues
+val language         = Var(Language.English)
+val loaded           = Var(0)
+catalogues.onAdded(_ => loaded.update(_ + 1))
+
+def switchTo(l: Language): Unit =
+  language.set(l)
+  CatalogueLoader.load(catalogues, l, s"/i18n/${l.tag}.json")
+
+div(child.text <-- language.signal.combineWith(loaded.signal).map((l, _) => Orders.cancelled.localize(l)))
+```
+
+On a language switch the application fetches the next file; it may prefetch one, the library
+does not.
+
+### Exporting catalogues
+
+`taihei-i18n-tools` has one program, `dev.taihei.i18n.tools.ExportCatalogues`. It finds the
+families on the application's classpath, those of libraries such as `CoreMessages` included, and
+writes one merged file per language: `<out>/<tag>.json`. The file of the source language is the
+one to hand to translators; the others hold the catalogue files on the classpath over the inline
+translations. It is an ordinary run step, not a build plugin:
+
+```scala
+// Mill: a module with the tools on its run classpath
+def runMvnDeps = Seq(mvn"dev.taihei::taihei-i18n-tools:5.0.0")
+// ./mill app.runMain dev.taihei.i18n.tools.ExportCatalogues --out out/i18n --scan com.acme --scan dev.taihei.i18n
+```
+
+```scala
+// sbt: run it forked, so that its classpath is the application's
+libraryDependencies += "dev.taihei" %% "taihei-i18n-tools" % "5.0.0"
+Compile / run / fork := true
+// sbt "runMain dev.taihei.i18n.tools.ExportCatalogues --out target/i18n --scan com.acme --scan dev.taihei.i18n"
+```
+
+`--scan <package>` finds every family object in a package; `--family <object>` names one.
+Templates that fail their checks are left out and printed, and make the exit status 1.
+
+### Checking catalogues in your tests
+
+```scala
+// Any platform: your families and the catalogues you have
+assertTrue(Catalogues.verify(Seq(Orders), catalogues, required = Set(Language.Dutch)).isEmpty)
+
+// JVM: the files on the classpath
+assertTrue(ClasspathCatalogues.verify(Seq(Orders), Seq(Dutch, French), required = Set(Dutch)).isEmpty)
+```
+
+`verify` checks every template in the code and in the catalogues against the definition of its
+key, that no catalogue has a key without a definition, that every **required** language has every
+key (inline or in a file; other languages may be partial and fall back), and that keys are unique
+across families. Completeness of files is a test-time check: checking files when the code compiles
+would make the build read files a compiler cannot track.
+
+## On the wire
+
+A `Message` is written as its key and typed arguments, and by default its text in the source
+language:
+
+```json
+{"key":"order.shipped","args":{"count":3,"on":"2026-10-23"},"text":"3 items shipped on October 23, 2026"}
+```
+
+- A number is a number, a date an ISO 8601 string, a language its tag.
+- `Message.encoder(withText = false)` leaves out `text`.
+- Reading a message needs its definition: the decoder (`given` with a `Catalogues` in scope) looks
+  up the key among the registry's families to read the arguments with their types. A key it does
+  not know reads as its `text`, and is an error without one.
+- A `Text` is `{"text":"Disk full","language":"en"}`.
+- The 4.x shape (`args`, `namedArgs`, `translationTemplates`) is still read, as a legacy message
+  under the key `legacy`, so stored 4.x JSON and a 4.x peer keep working.
+- Input is bounded: messages nest at most 8 deep, a list holds at most 10000 elements, a catalogue
+  is at most 4M characters, 100000 messages and 16 levels of JSON nesting.
+
+Versioning rules for keys:
+
+- A key is a contract. Never reuse a key for a different set of arguments.
+- Adding an argument means a new key, unless the new argument is an `Option`: a reader that does
+  not have it sees `None`.
+- Removing or retyping an argument means a new key.
+- The envelope above is format 1 of taihei-i18n 5.x. A change to it would be a major release.
+  There is no version field per message.
+
+## ICU MessageFormat 2.0
+
+Templates use the MF2 dialect this library has always read, and `MessageFormat2` formats one
+directly:
+
+```scala
+val tmpl = ".match {$count :plural} when one {You have one item} when * {You have {$count} items}"
 
 MessageFormat2.format(tmpl, Map("count" -> 1), "en")  // You have one item
 MessageFormat2.format(tmpl, Map("count" -> 5), "en")  // You have 5 items
+MessageFormat2.validate("Hello {$name")               // List(TemplateError(6, a placeholder is not closed with }))
 ```
 
-Placeholders support functions — `{$value :number style=currency}`,
-`{$date :datetime dateStyle=long}` — which route through the cross-platform
-`PlatformNumberFormatter` / `PlatformDateTimeFormatter`.
+Functions: `{$n :number}` (with `style=percent` or `style=currency`), `{$n :integer}`,
+`{$d :datetime dateStyle=long timeStyle=short}`, `{$d :date}`, `{$t :time}`, `:plural` and
+`:select` as `.match` selectors, `:string`. Declarations: `.input {$n :number}` and
+`.local $x = {$n :number}` (or `.let`). `.match` variants are `when <keys> {pattern}`, and one of
+them must be `when * {...}`. On the JVM a long or full `timeStyle` on a value without a time zone
+formats as medium; Scala.js prints the runtime's zone instead.
 
-### Pre-built messages
+## Pre-built messages
 
-`CoreMessages` ships a tri-lingual library of common messages grouped under
-`Authentication`, `Authorization`, `Validation`, `Exceptions`, and `General` —
-e.g. `CoreMessages.Validation.stringMinLength(8)`.
+`CoreMessages` holds families of common messages, English as the source language and Dutch and
+French as catalogue files in the jar: `General`, `Authentication`, `Authorization`, `Validation`,
+`Exceptions`, and `Languages` (what `Language.label` uses). `CoreMessages.families` lists them.
+
+```scala
+given Catalogues = Catalogues(CoreMessages.families)
+CoreMessages.Validation.stringMinLength(min = 8).localize(Language.Dutch)  // lengte moet minimaal 8 zijn
+CoreMessages.Validation.formatErrors(Map("email" -> List(CoreMessages.Validation.stringValidEmail)))
+  .localize(Language.French)  // Échec de validation: email (Doit être une adresse e-mail valide)
+```
+
+In Scala.js the Dutch and French files reach the browser through the export, like your own.
+
+## Migrating from 4.x
+
+5.0.0 replaces the 4.x `Message`, which carried every translation, with typed families. The 4.x
+type stays, unchanged and deprecated, as `dev.taihei.i18n.legacy.Message` until 6.0.0. Moving to
+5.0.0 is a change of imports:
+
+```scala
+import dev.taihei.i18n.*
+import dev.taihei.i18n.legacy.Message   // an explicit import wins over the wildcard
+```
+
+Code then compiles with deprecation warnings, and legacy messages and new ones are shown side by
+side (both are `Displayable`). To silence the warnings while you migrate, add
+`-Wconf:cat=deprecation&origin=dev\.taihei\.i18n\.legacy\..*:s` to the compiler options.
+
+Then move the messages to families, one family at a time:
+
+| 4.x | 5.x |
+| --- | --- |
+| `Message.with0Args(English -> "Saved", Dutch -> "Opgeslagen")` | `val saved = message("Saved", Dutch -> "Opgeslagen")` in a `MessageFamily` |
+| `Message.withNamedArgs(English -> "Hello {$name}")("name" -> n)` | `val hello = message[(name: String)]("Hello {$name}")`, then `hello(name = n)` |
+| `Message.with1Arg` … `with10Args` and `{$0}` | named arguments: `message[(count: Int, query: String)]("{$count} results for {$query}")` |
+| `message.translate(language)`, `message.render(language)` | `message.localize(language)`, with a `given Catalogues` |
+| `message.toString` (English) | `message.toString` (the family's source language) |
+| `Message.of(throwable)` | `Text.of(throwable)` |
+| `Message.of(string)` | `Text(string, Language.English)` |
+| the union type `MessageArg` | the type class `MessageArg[A]`; the union is `legacy.MessageArg` |
+| `MessageFormat2.Parser`, its AST, `Context` | internal now: use `MessageFormat2.format` and `MessageFormat2.validate` |
+| `PlatformNumberFormatter`, `PlatformDateTimeFormatter`, `PlatformLocales`, `PlatformLanguageNames` | internal now: format through a template |
+| `Language.label: legacy Message` | `Language.label: Message`, shown in any reader's language |
+| `CoreMessages.X.member(args)` | the same names, with named, typed arguments |
+| `CoreMessages.Exceptions.revisionMismatch(expected, actual)` | `CoreMessages.Exceptions.revisionMismatchBetween(expected, actual)` |
+| `CoreMessages.Validation.formatErrors(Map[String, List[Message]])` | `formatErrors(Map[String, List[Displayable]])`; each field error is shown in the reader's language |
+| `!!unknown message!!` | gone: the source language always has the key |
+
+The step from string-named arguments to typed ones is where the compiler starts to help: a
+template that names an argument it does not have, or formats a date as a number, no longer
+compiles. Do it family by family.
+
+JSON: stored or exchanged 4.x messages stay readable as legacy messages. A message a 5.x writer
+produces is not readable by a 4.x reader: during a rollout, upgrade the readers (the clients)
+first, or keep writing legacy messages until they have.
+
+`Language` itself is unchanged and binary compatible with 4.x, so a library built against
+taihei-i18n 4.0.x that uses `Language` only, such as taihei-lorem 4.x, keeps working with 5.0.0
+on the classpath.
 
 ## Testing
 
@@ -142,10 +372,13 @@ e.g. `CoreMessages.Validation.stringMinLength(8)`.
 import dev.taihei.i18n.*
 import zio.test.*
 
-assertTrue(
-  greeting.translate(Language.Dutch).contains("Alice"),
-  Language.of("fr") == Language.French,
-)
+test("messages") {
+  given Catalogues = Catalogues(Seq(Orders))
+  assertTrue(
+    Orders.cancelled.localize(Language.Dutch) == "Uw bestelling werd geannuleerd",
+    Catalogues.verify(Seq(Orders), Nil, required = Set(Language.Dutch)).isEmpty,
+  )
+}
 ```
 
 The suite runs on both platforms (`make test`); JS tests execute under Node.

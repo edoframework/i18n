@@ -1,42 +1,34 @@
-# coremessages — the pre-built message library
+# coremessages - the pre-built message families
 
-Package `dev.taihei.i18n`. `CoreMessages` is a ready-made, tri-lingual (English, Dutch,
-French) library of common application messages, grouped into nested objects.
-Static members are `Message` values; parameterized ones are factory methods
-returning a `Message`.
+Package `dev.taihei.i18n`. `CoreMessages` holds families of common messages, English as the source
+language, Dutch and French as catalogue files in the jar
+(`META-INF/taihei-i18n/taihei.<group>/<nl|fr>.json`). On Scala.js those files reach the browser
+through the export. `CoreMessages.families` lists all of them.
 
 ```scala
-import dev.taihei.i18n.*
-
-CoreMessages.Validation.stringMinLength(8).translate(Language.English)
-CoreMessages.Authentication.invalidCredentials.translate(Language.French)
+given Catalogues = Catalogues(CoreMessages.families)
+CoreMessages.Validation.stringMinLength(min = 8).localize(Language.Dutch)  // lengte moet minimaal 8 zijn
+CoreMessages.Authentication.invalidCredentials.localize(Language.French)   // English: no French file entry
 ```
 
-## Groups
-
-| Group | Representative members |
+| Family (prefix) | Members |
 | --- | --- |
-| `CoreMessages.General` | `helloWorld(name: String)` |
-| `CoreMessages.Authentication` | `success`, `accountNotFound`, `invalidCredentials`, `emailNotVerified`, `emailAlreadyRegistered`, `weakPassword`, `passwordMismatch`, `expiredToken`, `tokenAlreadyUsed`, `wrongCurrentPassword`, `verificationSent`, `passwordResetSent`, `locked`, `cannotRemoveLastCredential` |
-| `CoreMessages.Authorization` | `accountNotActive`, `accountNotSystem`, `insufficientRole`, `insufficientGrant`, `personAccountMismatch`, `registerPersonForDifferentAccount` |
-| `CoreMessages.Validation` | `invalid`, `stringShouldNotBeBlank`, `stringValidEmail`, `stringValidUrl`, `stringValidPhoneNumber`, `stringLengthBetween(min, max)`, `stringMinLength(min)`, `stringMaxLength(max)`, `stringShouldEqual(otherName)`, `intMinimum/intMaximum/intBetween`, `longMinimum/longMaximum`, `dateMinimum/dateMaximum/dateFuture/datePast`, `nonEmpty`, `invalidDate`, `invalidDateTime`, `dateRangeInvalid`, `formatErrors(errors)`, `missingTranslations(languages)` |
-| `CoreMessages.Exceptions` | `unsupportedCommand`, `invalidCommand`, `commandVeto(command, state)`, `notFound`, `imageNotFound`, `unauthorized`, `forbidden`, `unknownError`, `revisionMismatch` (static and `(expected, actual)`), `eventFailure`, `stateFailure`, `invalidQuery`, `queryFailure`, `personAlreadyLinked`, `mediaProcessingFailed` |
+| `General` (`taihei.general`) | `helloWorld(name)` |
+| `Authentication` (`taihei.authentication`, English only) | `success`, `accountNotFound`, `invalidCredentials`, `emailNotVerified`, `emailAlreadyRegistered`, `weakPassword`, `passwordMismatch`, `expiredToken`, `tokenAlreadyUsed`, `cannotRemoveLastCredential`, `wrongCurrentPassword`, `verificationSent`, `passwordResetSent`, `locked` |
+| `Authorization` (`taihei.authorization`) | `accountNotActive`, `accountNotSystem`, `insufficientRole`, `insufficientGrant`, `personAccountMismatch`, `registerPersonForDifferentAccount` |
+| `Validation` (`taihei.validation`) | `invalid`, `stringShouldNotBeBlank`, `stringValidEmail`, `stringValidUrl`, `stringValidPhoneNumber`, `stringLengthBetween(min, max)`, `stringMinLength(min)`, `stringMaxLength(max)`, `stringShouldEqual(otherName)`, `intMinimum(min)`, `intMaximum(max)`, `intBetween(min, max)`, `longMinimum(min)`, `longMaximum(max)`, `dateMinimum(min: LocalDate)`, `dateMaximum(max: LocalDate)`, `dateFuture`, `datePast`, `nonEmpty`, `shouldNotEqual`, `invalidDate`, `invalidDateTime`, `dateRangeInvalid`, `missingTranslations(languages)`, `failed(errors)`, `fieldError(field, error)`, `formatErrors(errors)` |
+| `Exceptions` (`taihei.exceptions`) | `unsupportedCommand`, `invalidCommand`, `commandVeto(command, state)`, `personAlreadyLinked`, `mediaProcessingFailed`, `eventFailure`, `stateFailure`, `invalidQuery`, `queryFailure`, `unknownError`, `notFound`, `imageNotFound`, `unauthorized`, `forbidden`, `revisionMismatch`, `revisionMismatchBetween(expected, actual)` |
+| `Languages` (`taihei.language`) | `name(language)`: what `Language.label` returns |
 
-## Formatting a bag of validation errors
-
-`CoreMessages.Validation.formatErrors` folds a map of field → messages into one
-human-readable `Message`:
+## Validation errors of several fields
 
 ```scala
-val errors: Map[String, List[Message]] = Map(
-  "email"    -> List(CoreMessages.Validation.stringValidEmail),
-  "password" -> List(CoreMessages.Authentication.weakPassword),
-)
-CoreMessages.Validation.formatErrors(errors).translate(Language.English)
-// Validation failed: email (…), password (…)
+CoreMessages.Validation.formatErrors(Map(
+  "email" -> List(CoreMessages.Validation.stringValidEmail),
+  "name"  -> List(CoreMessages.Validation.stringShouldNotBeBlank),
+)).localize(Language.Dutch)
+// Validatie mislukt: email (moet een geldig e-mailadres zijn), name (mag niet leeg zijn)
 ```
 
-> Note: `formatErrors` takes a plain `Map[String, List[Message]]`, so the library
-> depends on no validation package. A type alias for that `Map` in your own code
-> (for example `type ValidationErrors = Map[String, List[Message]]`) is accepted
-> unchanged.
+`formatErrors(errors: Map[String, List[Displayable]]): Message`: fields in alphabetical order,
+each error a nested message shown in the reader's language; no errors gives `invalid`.

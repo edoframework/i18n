@@ -1,0 +1,83 @@
+# catalogues - Catalogue, Catalogues, loading, verify, export
+
+Package `dev.taihei.i18n`; the export is in `taihei-i18n-tools`.
+
+## Catalogue files
+
+One JSON file per language, MF2 templates by key:
+
+```json
+{"format":1,"language":"de","messages":{"order.shipped":"...","order.cancelled":"..."}}
+```
+
+- `Catalogue(language, messages: Map[MessageKey, String])`, `catalogue.toJson`.
+- `Catalogue.parse(json): Either[CatalogueProblem, Catalogue]` never throws. It refuses a file
+  over 4M characters, nested deeper than 16, with more than 100000 messages, not JSON, not format
+  1, or without a valid `language`. Entries that are not a key and a string template of at most
+  64K characters are left out and listed in `catalogue.problems`.
+- `CatalogueProblem(message, language: Option[Language], key: Option[MessageKey])`; input text in
+  it is escaped and cut short, safe to log.
+
+## Catalogues, the registry
+
+```scala
+given catalogues: Catalogues = Catalogues(
+  families = Seq(Orders) ++ CoreMessages.families,
+  fallbacks = Map(Language("lb") -> Seq(Language("de"))),
+)
+Orders.cancelled.localize(Language("lb-LU"))
+```
+
+- The chain for language L: L, L without its last subtag step by step, the configured fallbacks of
+  each of those (walked the same way), the family's source language. Formatting always in L.
+  `catalogues.fallbackChain(language, source)` shows it.
+- In a language, a catalogue file wins over an inline translation; in the source language the
+  code's template wins.
+- `add(catalogue): List[CatalogueProblem]`: later adds win. Templates of known families are checked
+  now, others when their message is first shown; one that fails is dropped and falls back.
+- `register(families*)`: needed for decoding JSON; showing a message registers its family.
+- `languages`, `problems` (the first 1000), `onAdded(listener): () => Unit` (returns the
+  unsubscribe; a throwing listener is ignored).
+- Thread-safe. Showing a message never throws.
+
+## JVM: the classpath
+
+Files at `META-INF/taihei-i18n/<prefix>/<tag>.json` (canonical tag, `zh-Hant.json`), read with the
+family's class loader the first time a language is needed, at most 16 MB, UTF-8 only. Keys of
+another family in a family's file are left out with a problem.
+
+- `ClasspathCatalogues.read(family, language): Option[Either[CatalogueProblem, Catalogue]]`.
+- `ClasspathCatalogues.verify(families, languages, required): List[CatalogueProblem]`.
+
+## Scala.js: fetch
+
+```scala
+CatalogueLoader.load(catalogues, Language("de"), "/i18n/de.json"): Future[List[CatalogueProblem]]
+```
+
+Takes a `given ExecutionContext`, uses the global `fetch`, never fails the `Future`. Until a
+language is loaded, messages show through the chain; `onAdded` tells when to re-render. No
+dependency on Laminar or an effect library. Inline translations are in the bundle: a browser
+application with many languages uses files.
+
+## verify, for tests
+
+```scala
+Catalogues.verify(families, catalogues, required = Set(Language.Dutch)): List[CatalogueProblem]
+```
+
+Empty means all is well. It checks every template (code, inline, files) against its definition,
+user argument types included; keys without a definition; every required language complete (inline
+or file); duplicate prefixes and keys; a language given twice inline; an inline translation in the
+source language.
+
+## Export: taihei-i18n-tools
+
+```
+dev.taihei.i18n.tools.ExportCatalogues --out <dir> [--scan <package>]... [--family <object>]...
+```
+
+Writes `<dir>/<tag>.json` per language, merging every family found (libraries included): the
+source templates for families in that language, else classpath files over inline translations.
+Failing templates are left out and printed (exit 1); usage errors exit 2. Run as `runMain` (Mill)
+or a forked `run` (sbt).
