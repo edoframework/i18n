@@ -3,11 +3,14 @@ package dev.taihei.i18n
 import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 import scala.NamedTuple.AnyNamedTuple
+import scala.annotation.publicInBinary
 import scala.quoted.*
 
 // The compile-time half of MessageFamily.message. It reads only the code it is applied to and
 // runs the library's own MF2 checks, so it needs no build plugin and incremental compilation stays
 // correct.
+// Called from the expansion of MessageFamily.message in user code, so its name is binary API.
+@publicInBinary
 private[i18n] object MessageMacros:
 
   def message[A <: AnyNamedTuple : Type](
@@ -23,15 +26,19 @@ private[i18n] object MessageMacros:
       report.errorAndAbort("A message's template must be a literal string.", template)
     )
 
-    // The splice's owner is the expansion; its owner is the val being defined. Only its name is
-    // read: asking a val for more while its type is being inferred is a cyclic reference.
-    val definedVal = Symbol.spliceOwner.owner
-    if definedVal.isNoSymbol || !definedVal.owner.isClassDef then
+    // The splice's owner is the expansion; its owner is the val being defined. Only its kind
+    // and name are read: asking a val for its flags while its type is being inferred is a
+    // cyclic reference, which is also why a lazy val or a var cannot be told from a val here.
+    val definedVal  = Symbol.spliceOwner.owner
+    val familyClass = family.asTerm.tpe.widen.typeSymbol
+    if definedVal.isNoSymbol || !definedVal.isValDef || definedVal.owner != familyClass ||
+      !familyClass.flags.is(Flags.Module)
+    then
       report.errorAndAbort(
-        "A message is defined as a val in the body of a MessageFamily object.",
+        "A message is defined as a val in the body of its MessageFamily object: not in a def, a nested object or a class.",
         template,
       )
-    val name       = definedVal.name
+    val name        = definedVal.name
     if !MessageKey.isPart(name) then
       report.errorAndAbort(
         s"'$name' cannot be part of a message key: use an ASCII letter followed by letters, digits and _.",

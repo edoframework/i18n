@@ -100,7 +100,7 @@ end Text
  * translations live in the family and in [[Catalogues]]; [[localize]] picks the reader's.
  *
  * {{{
- * given Catalogues = Catalogues(Orders)
+ * given Catalogues = Catalogues(Seq(Orders))
  * Orders.shipped(count = 3, on = today).localize(Language.Dutch)
  * }}}
  *

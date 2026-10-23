@@ -60,7 +60,9 @@ Orders.shipped(count = 3, on = today).localize(Dutch)  // falls back to English,
 ## Top gotchas
 
 - `message` works only as the right-hand side of a `val` in the family's body, with a literal
-  template. The key is the val's name: renaming the val changes the key, which is a wire contract.
+  template; a `def`, a nested object or a class is a compile error. Use a plain `val`, not a
+  `lazy val` (it would join `definitions` only when first used). The key is the val's name:
+  renaming the val changes the key, which is a wire contract.
 - A key is a contract: never reuse it for other arguments. Adding an argument needs a new key
   unless it is an `Option`.
 - Decoding a `Message` from JSON needs a `given Catalogues` that knows the family (`Catalogues(Seq(...))`

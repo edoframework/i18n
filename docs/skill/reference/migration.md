@@ -10,7 +10,9 @@ import dev.taihei.i18n.*
 import dev.taihei.i18n.legacy.Message   // explicit, so it wins over the wildcard's Message
 ```
 
-The code compiles with deprecation warnings. To silence them while migrating:
+Code that only builds and translates 4.x messages then compiles with deprecation warnings; code
+that uses `Message.of`, `Language.label`, `CoreMessages`, the `MessageArg` union or the MF2
+internals needs the changes of step 2. To silence them while migrating:
 `-Wconf:cat=deprecation&origin=dev\.taihei\.i18n\.legacy\..*:s`. Legacy messages are
 `Displayable` and show next to new ones; `legacy.MessageArg` is the 4.x union type.
 

@@ -120,6 +120,9 @@ trait TaiheiModule extends ScalaModule with ScalafmtModule with ScalafixModule w
     "-deprecation",
     "-feature",
     "-Xmax-inlines:128",
+    // The message macro expands in user code: what it calls must be public in the bytecode.
+    "-WunstableInlineAccessors",
+    "-Wconf:msg=Unstable inline accessor:e",
   )
 
   trait TaiheiTests extends ScalaTests with ScalafmtModule with ScalafixModule {
@@ -156,6 +159,9 @@ trait TaiheiJSModule extends ScalaJSModule with ScalafmtModule with ScalafixModu
     "-deprecation",
     "-feature",
     "-Xmax-inlines:128",
+    // The message macro expands in user code: what it calls must be public in the bytecode.
+    "-WunstableInlineAccessors",
+    "-Wconf:msg=Unstable inline accessor:e",
   )
 
   // java.time on Scala.js is provided by scala-java-time (+ tzdb for zone data).

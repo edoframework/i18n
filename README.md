@@ -127,7 +127,9 @@ Dutch)`). Each message is a `val` defined with `message`:
   Applied to its arguments, by name or by position, it gives a `Message`:
   `Orders.shipped(count = 3, on = today)`. The compiler checks the names and the types.
 
-The key of a message is the prefix, a dot and the val's name: `order.shipped`. A `Message` is
+The key of a message is the prefix, a dot and the val's name: `order.shipped`. A message is a
+plain `val` of the family object; in a `def`, a nested object or a class it does not compile, and
+a `lazy val` would only join the family's definitions when first used. A `Message` is
 that key and the argument values, nothing else; its translations stay in the family and in
 catalogues.
 
@@ -267,8 +269,10 @@ language:
 - A number is a number, a date an ISO 8601 string, a language its tag.
 - `Message.encoder(withText = false)` leaves out `text`.
 - Reading a message needs its definition: the decoder (`given` with a `Catalogues` in scope) looks
-  up the key among the registry's families to read the arguments with their types. A key it does
-  not know reads as its `text`, and is an error without one.
+  up the key among the registry's families to read the arguments with their types. **Register
+  every family whose messages you read** (`Catalogues(Seq(...))` or `register`): a key the
+  registry does not know reads as its `text`, shown as it is in every language, and is an error
+  without one.
 - A `Text` is `{"text":"Disk full","language":"en"}`.
 - The 4.x shape (`args`, `namedArgs`, `translationTemplates`) is still read, as a legacy message
   under the key `legacy`, so stored 4.x JSON and a 4.x peer keep working.
@@ -323,15 +327,17 @@ In Scala.js the Dutch and French files reach the browser through the export, lik
 
 5.0.0 replaces the 4.x `Message`, which carried every translation, with typed families. The 4.x
 type stays, unchanged and deprecated, as `dev.taihei.i18n.legacy.Message` until 6.0.0. Moving to
-5.0.0 is a change of imports:
+5.0.0 starts with a change of imports:
 
 ```scala
 import dev.taihei.i18n.*
 import dev.taihei.i18n.legacy.Message   // an explicit import wins over the wildcard
 ```
 
-Code then compiles with deprecation warnings, and legacy messages and new ones are shown side by
-side (both are `Displayable`). To silence the warnings while you migrate, add
+Code that only builds and translates 4.x messages then compiles with deprecation warnings, and
+legacy messages and new ones are shown side by side (both are `Displayable`). Code that uses
+`Message.of`, `Language.label`, `CoreMessages`, the `MessageArg` union or the MF2 internals needs
+the changes in the table below. To silence the warnings while you migrate, add
 `-Wconf:cat=deprecation&origin=dev\.taihei\.i18n\.legacy\..*:s` to the compiler options.
 
 Then move the messages to families, one family at a time:

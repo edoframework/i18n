@@ -1,6 +1,7 @@
 package dev.taihei.i18n
 
 import scala.NamedTuple.AnyNamedTuple
+import scala.annotation.publicInBinary
 import scala.collection.mutable
 
 import zio.json.ast.Json
@@ -30,12 +31,17 @@ abstract class MessageFamily(val prefix: String, val sourceLanguage: Language = 
 
   require(MessageKey.isPrefix(prefix), s"Not a message family prefix: '${Printable(prefix)}'")
 
-  // Filled while the object initializes, one entry per message val, and read after.
-  private val defined = mutable.ArrayBuffer.empty[MessageDefinition[?]]
+  // Filled while the object initializes, one entry per message val. A lazy val, which the macro
+  // cannot tell from a val, adds its entry when first used, from any thread: hence the lock, and
+  // one entry per name.
+  private val defined = mutable.LinkedHashMap.empty[String, MessageDefinition[?]]
 
   /** The family's messages, in the order they are defined. */
-  final def definitions: List[MessageDefinition[?]] = defined.toList
+  final def definitions: List[MessageDefinition[?]] = defined.synchronized(defined.values.toList)
 
+  // Called from the expansion of `message` in user code: its name and signature are binary API
+  // for 5.x, kept stable by @publicInBinary.
+  @publicInBinary
   final private[i18n] def define[A <: AnyNamedTuple](
     name: String,
     template: String,
@@ -49,13 +55,14 @@ abstract class MessageFamily(val prefix: String, val sourceLanguage: Language = 
       translations.toList,
       arguments.map((n, a) => n -> a.asInstanceOf[MessageArg[Any]]),
     )
-    defined += definition
-    definition
+    defined.synchronized(defined.getOrElseUpdate(name, definition)).asInstanceOf[MessageDefinition[A]]
 
   end define
 
   /**
    * Defines a message of this family, as the right-hand side of a `val` in the family's body.
+   * In a `def`, a nested object or a class it does not compile; a `lazy val` would join
+   * [[definitions]] only when first used, so use a plain `val`.
    *
    * Without a type argument it is a message without arguments, and the result is a [[Message]].
    * With a named tuple of argument types (`message[(count: Int, on: LocalDate)](...)`) the result
@@ -117,6 +124,8 @@ final class MessageDefinition[A <: AnyNamedTuple] private[i18n] (
     new Message(key, Message.Body.Defined(this, args.toVector))
 
   // The message of a definition without arguments.
+  // Binary API for 5.x, as MessageFamily.define is.
+  @publicInBinary
   private[i18n] def constant: Message = new Message(key, Message.Body.Defined(this, Vector.empty))
 
   private[i18n] lazy val kinds: Map[String, ArgKind] = arguments.map((n, a) => n -> a.kind).toMap
