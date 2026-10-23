@@ -237,4 +237,28 @@ object i18n extends Module {
       )
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // taihei-i18n-tools: the JVM-only program that exports catalogues. JVM only because its whole
+  // job is writing files.
+  // ---------------------------------------------------------------------------
+  object tools extends TaiheiModule {
+    def artifactName = "taihei-i18n-tools"
+
+    def pomSettings = Task {
+      super.pomSettings().copy(description = "Exports the message catalogues of taihei-i18n families to per-language JSON files; JVM")
+    }
+
+    def moduleDeps = Seq(i18n.jvm)
+
+    def sources = Task.Sources(
+      wsRoot / "tools" / "src",
+    )
+
+    object test extends TaiheiTests {
+      def sources = Task.Sources(
+        wsRoot / "tools" / "test" / "src",
+      )
+    }
+  }
 }
