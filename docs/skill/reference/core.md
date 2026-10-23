@@ -75,7 +75,7 @@ type MessageArg = String | Int | Long | Double | Float | Boolean
 | `Message.with0Args(translations: (Language, String)*)` | a static message, no substitution |
 | `Message.withNamedArgs(translations: (Language, String)*)(arguments: (String, MessageArg)*)` | **preferred** — `{$name}` placeholders bound to named args |
 | `Message.of(value: String)` | wrap a plain string as an English-only message |
-| `Message.of(t: Throwable)` | a message from an exception's text |
+| `Message.of(t: Throwable)` | a message from an exception's text; `toString` (the class name) when it has no message |
 
 ```scala
 Message.with0Args(

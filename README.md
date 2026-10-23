@@ -79,6 +79,11 @@ Coming from `fish.genius::genius-i18n:2.0.0`, replace `genius.i18n` instead. 3.0
 moved to Scala 3.9 (LTS), so your build needs Scala 3.9 or later, to `zio-json` 1.1
 instead of 0.9, and to the Apache License 2.0.
 
+Do not stay on 2.0.0, 3.0.0 or 4.0.0. Parsing a long language tag can overflow the stack in
+them; 4.0.1 fixes it (advisory
+[GHSA-45w8-x6c8-w4hg](https://github.com/taiheiframework/i18n/security/advisories/GHSA-45w8-x6c8-w4hg)).
+There is no patch under the old coordinates.
+
 ## Quick start
 
 ```scala

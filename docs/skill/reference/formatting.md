@@ -17,7 +17,7 @@ object PlatformDateTimeFormatter:
 
 - `locale` is `"en" | "nl" | "fr"`.
 - Number `style`: `Some("percent")`, `Some("currency")`, or `None` (decimal).
-- DateTime `options`: e.g. `"dateStyle" -> "short" | "medium" | "long" | "full"`.
+- DateTime `options`: e.g. `"dateStyle" -> "short" | "medium" | "long" | "full"`. On the JVM a `long` or `full` `timeStyle` on a time without a zone formats as `medium`. On both platforms styles are case-insensitive and an unknown style gives `medium`.
 
 | Platform | Numbers | Dates/times | Locale mapping |
 | --- | --- | --- | --- |

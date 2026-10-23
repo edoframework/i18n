@@ -17,6 +17,11 @@ from 4.0.0, compiled with Scala 3.9 (LTS), Apache 2.0. Source:
 package `com.edoframework.i18n`; up to 2.0.0 it was `fish.genius::genius-i18n` in package
 `genius.i18n`. All three have the same API.
 
+Use 4.0.1 or later. Language-tag parsing in 2.0.0, 3.0.0 and 4.0.0 can overflow the stack on a long
+tag (`StackOverflowError` on the JVM) (advisory
+[GHSA-45w8-x6c8-w4hg](https://github.com/taiheiframework/i18n/security/advisories/GHSA-45w8-x6c8-w4hg)).
+There is no patch under the old coordinates.
+
 ## When to use this skill
 
 Read this whenever you write or review Scala that imports `dev.taihei.i18n.*` (or `com.edoframework.i18n.*` in 3.0.0, `genius.i18n.*` before) —

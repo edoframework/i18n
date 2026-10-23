@@ -29,7 +29,7 @@ string and an argument map.
 | `{$value :number style=currency}` | currency formatting |
 | `{$value :number style=percent}` | percent formatting |
 | `{$date :datetime}` | format as date/time (→ `PlatformDateTimeFormatter`) |
-| `{$date :datetime dateStyle=short}` | date style: `short` \| `medium` \| `long` \| `full` |
+| `{$date :datetime dateStyle=short}` | date style: `short` \| `medium` \| `long` \| `full` (case-insensitive; an unknown style gives `medium`) |
 
 ## Declarations
 
@@ -49,7 +49,8 @@ when other {You have {$count} items}
 
 - `.match {$selector}` — single selector; `.match {$a} {$b}` — multiple.
 - `when key { pattern }` — a case; `when * { pattern }` — wildcard (matches all).
-- Plural keys: `one`, `other`, and exact matches `=0`, `=1`, ….
+- Plural keys: `one`, `other`, and exact matches `=0`, `=1`, …. An exact-match key that is not a
+  number in `Int` range (`=abc`, `99999999999`) matches nothing and does not throw.
 - **Locale-aware plurals:** French treats `0` and `1` as `one`; English and Dutch
   treat only `1` as `one`. Always pass the right `locale` so selection is correct.
 
