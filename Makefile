@@ -12,9 +12,17 @@ CENTRAL_PATHS = dev/taihei/taihei-tsuji_3 dev/taihei/taihei-tsuji_sjs1_3 dev/tai
 # marked assume-unchanged or skip-worktree, which hides its edits from git status: what is
 # published is what the tag holds.
 SOURCE_DIRS = shared jvm js tools tsuji
-STRAY_GUARD = STRAY=$$(git status --porcelain --ignored --untracked-files=all -- $(SOURCE_DIRS)); \
+# The build definition decides which modules are published: a stray .mill file anywhere in the
+# tree adds one. So the guard covers it too, and every publishing step checks that exactly the
+# modules below are published.
+BUILD_FILES = '*.mill' mill-build .mill-version .mill-jvm-opts ':(exclude)out'
+STRAY_GUARD = STRAY=$$(git status --porcelain --ignored --untracked-files=all -- $(SOURCE_DIRS) $(BUILD_FILES)); \
 	HIDDEN=$$(git ls-files -v -- $(SOURCE_DIRS) | grep -E '^[a-zS]' || true); \
 	if [ -n "$$STRAY$$HIDDEN" ]; then echo "[ERROR] files git does not track, or hides changes of, would be published:"; echo "$$STRAY$$HIDDEN"; exit 1; fi
+
+PUBLISHED = tsuji.js.publishArtifacts tsuji.jvm.publishArtifacts tsuji.tools.publishArtifacts
+MODULE_GUARD = MODULES=$$(./mill resolve __.publishArtifacts | sort | tr '\n' ' ' | sed 's/ $$//'); \
+	if [ "$$MODULES" != "$(PUBLISHED)" ]; then echo "[ERROR] the build would publish '$$MODULES', not '$(PUBLISHED)'"; exit 1; fi
 
 # A release version is three numbers and nothing else.
 VERSION_GUARD = if ! [[ "$$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$$ ]]; then echo "[ERROR] not a release version: '$$VERSION'"; exit 1; fi
@@ -99,6 +107,7 @@ publish:
 	@set -e; \
 	$(STRAY_GUARD); \
 	trap './mill shutdown >/dev/null 2>&1 || true' EXIT; \
+	$(MODULE_GUARD); \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
 	for V in MILL_SONATYPE_USERNAME MILL_SONATYPE_PASSWORD MILL_PGP_SECRET_BASE64 MILL_PGP_PASSPHRASE; do \
 	  if [ -z "$${!V}" ]; then echo "[publish] $$V is not set ($(RELEASE_ENV) or the environment)"; exit 1; fi; \
@@ -115,6 +124,7 @@ publish-dry-run:
 	@set -e; \
 	$(STRAY_GUARD); \
 	trap './mill shutdown >/dev/null 2>&1 || true' EXIT; \
+	$(MODULE_GUARD); \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
 	case "$$VERSION" in *-SNAPSHOT) BUNDLE=();; *) BUNDLE=(--bundleName "dev.taihei-taihei-tsuji-$$VERSION");; esac; \
@@ -129,6 +139,7 @@ release-preflight:
 	case "$$VERSION" in *-SNAPSHOT) echo "[preflight] $$VERSION is not a release"; exit 1;; esac; \
 	$(VERSION_GUARD); \
 	$(STRAY_GUARD); \
+	$(MODULE_GUARD); \
 	FOUND=""; \
 	for P in $(CENTRAL_PATHS); do \
 	  CODE=$$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$$P/$$VERSION/" || true); \
@@ -152,6 +163,7 @@ release-preflight:
 # nothing public: make release-abort, fix the cause, retry the same version.
 # ---------------------------------------------------------------------------
 
+# release-finalize publishes the commit release-prepare validated, and refuses any other HEAD.
 # A patch or minor release is checked by MiMa against the current release; a check without a
 # baseline passes, so release-prepare refuses one whose baseline is anything else (a missing tag,
 # a MIMA_BASELINE in the environment). A major runs without one.
@@ -205,8 +217,8 @@ release-prepare:
 	CHANGED=$$(git diff --name-only "v$$CURRENT"..HEAD 2>/dev/null || true); \
 	COUNT=$$(echo "$$COMMITS" | grep -c . || echo "0"); \
 	ST=$$(mktemp "$(CURDIR)/.release-state.XXXXXX"); \
-	printf '{"currentVersion":"%s","newVersion":"%s","releaseType":"%s","branch":"%s"}\n' \
-		"$$CURRENT" "$$NEW" "$(TYPE)" "$$BRANCH" > "$$ST"; \
+	printf '{"currentVersion":"%s","newVersion":"%s","releaseType":"%s","branch":"%s","head":"%s"}\n' \
+		"$$CURRENT" "$$NEW" "$(TYPE)" "$$BRANCH" "$$(git rev-parse HEAD)" > "$$ST"; \
 	mv -fT "$$ST" "$(RELEASE_STATE)"; \
 	NT=$$(mktemp "$(CURDIR)/.release-notes.XXXXXX"); trap 'rm -f "$$NT"' EXIT; \
 	if command -v claude >/dev/null 2>&1; then \
@@ -307,6 +319,10 @@ release-finalize:
 	fi; \
 	$(STATE_GUARD); \
 	NEW=$$(python3 -c "import json; print(json.load(open('$(RELEASE_STATE)'))['newVersion'])"); \
+	PREPARED=$$(python3 -c "import json; print(json.load(open('$(RELEASE_STATE)')).get('head', ''))"); \
+	if [ "$$PREPARED" != "$$(git rev-parse HEAD)" ]; then \
+		echo "[ERROR] HEAD is not the commit release-prepare validated ($${PREPARED:-none recorded}): make release-abort, then release-prepare again"; exit 1; \
+	fi; \
 	if git rev-parse -q --verify "refs/tags/v$$NEW" >/dev/null; then \
 		echo "[ERROR] v$$NEW is already tagged: an earlier finalize got that far. Check Central, then make release-abort"; exit 1; \
 	fi; \
@@ -356,6 +372,10 @@ release-abort:
 		if [ "$$(git log -1 --pretty=%s)" = "Add release notes for version $$NEW" ]; then \
 			git reset --soft HEAD~1; \
 			echo "[OK] Reverted local release-notes commit"; \
+		fi; \
+		NOTES="RELEASE_$${NEW//./_}.md"; \
+		if [ -f "$$NOTES" ] && ! git ls-files --error-unmatch "$$NOTES" >/dev/null 2>&1; then \
+			rm -f "$$NOTES"; echo "[OK] Removed the prepared notes $$NOTES"; \
 		fi; \
 		rm -f $(RELEASE_STATE); \
 		echo "[OK] Release aborted, tag v$$NEW removed"; \
