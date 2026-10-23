@@ -11,7 +11,7 @@ different artifacts in different packages and can share a classpath, but their `
 are different types.
 
 ```sh
-grep -rl 'dev\.taihei\.i18n' --include='*.scala' . | xargs sed -i 's/dev\.taihei\.i18n/dev.taihei.tsuji/g'
+grep -rlZ 'dev\.taihei\.i18n' --include='*.scala' . | xargs -0 perl -pi -e 's/dev\.taihei\.i18n/dev.taihei.tsuji/g'
 ```
 
 ## Step 1: imports only
@@ -56,8 +56,9 @@ internals needs the changes of step 2. To silence them while migrating:
 
 5.x reads 4.x JSON (as a legacy message with the key `legacy`), within the bounds of
 taihei-i18n 4.0.x: at most 1000 templates and 1000 arguments, none of them, nor an argument name,
-longer than 65536 characters. `legacy.Message`'s own codec holds to the same bounds. A 4.x reader cannot read a 5.x
-message: upgrade readers (clients) first, or keep writing legacy messages until they have.
+longer than 65536 characters. `legacy.Message`'s own codec holds to the same bounds. A 4.x
+reader cannot read a 5.x message: upgrade readers (clients) first, or keep writing legacy
+messages until they have.
 
 ## Libraries built on 4.x
 

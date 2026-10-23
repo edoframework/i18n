@@ -356,7 +356,7 @@ Moving to 5.0.0 starts with the new coordinates and a change of imports:
 
 ```sh
 # every import of dev.taihei.i18n becomes dev.taihei.tsuji
-grep -rl 'dev\.taihei\.i18n' --include='*.scala' . | xargs sed -i 's/dev\.taihei\.i18n/dev.taihei.tsuji/g'
+grep -rlZ 'dev\.taihei\.i18n' --include='*.scala' . | xargs -0 perl -pi -e 's/dev\.taihei\.i18n/dev.taihei.tsuji/g'
 ```
 
 ```scala
@@ -419,7 +419,10 @@ instead of 0.9, and to the Apache License 2.0.
 Do not stay on 2.0.0, 3.0.0 or 4.0.0. Parsing a long language tag can overflow the stack in
 them; taihei-i18n 4.0.1 fixes it (advisory
 [GHSA-45w8-x6c8-w4hg](https://github.com/taiheiframework/tsuji/security/advisories/GHSA-45w8-x6c8-w4hg)).
-There is no patch under the older coordinates.
+There is no patch under the older coordinates. Do not stay on taihei-i18n 4.0.1 either: decoding
+or formatting a message read from untrusted JSON can use unbounded memory and CPU in it and every
+earlier release; 4.0.2 fixes it (advisory
+[GHSA-6h29-v54g-8337](https://github.com/taiheiframework/tsuji/security/advisories/GHSA-6h29-v54g-8337)).
 
 ## Testing
 
