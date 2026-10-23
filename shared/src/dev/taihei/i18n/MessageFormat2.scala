@@ -27,8 +27,8 @@ object MessageFormat2:
 
   /**
    * The template formatted with `args` in the locale given by the BCP 47 tag `locale`. A variable
-   * without a value shows as `$name`; it never throws: a template that cannot be formatted comes
-   * back as it was written.
+   * without a value shows as `$name`; it never throws: a template that cannot be formatted, or
+   * whose text would pass a million characters, comes back as it was written.
    */
   def format(
     template: String,
@@ -47,14 +47,18 @@ object MessageFormat2:
       List(TemplateError(0, s"the template is longer than $MaxTemplateLength characters"))
     else
       val parsed = parse(template)
-      (parsed.errors ++ structureErrors(parsed.message)).take(MaxErrors)
+      (parsed.errors ++ structureErrors(parsed.message)).take(MaxErrors).map(e =>
+        e.copy(message = Printable(e.message, MaxErrorLength))
+      )
 
   // A catalogue is input the application did not compile: a template longer than this is refused
   // before it is parsed. Parsing is linear and never recursive, so this bounds time and memory.
   private[i18n] val MaxTemplateLength = 65536
 
-  // Errors past this many tell nothing new and only cost memory.
-  private val MaxErrors = 100
+  // Errors past this many tell nothing new and only cost memory. An error echoes parts of the
+  // template, escaped and cut short, so that it can be logged as it is.
+  private val MaxErrors      = 100
+  private val MaxErrorLength = 200
 
   // ---------------------------------------------------------------------------------------------
   // AST
@@ -140,7 +144,7 @@ object MessageFormat2:
     val errors: mutable.ListBuffer[TemplateError] = mutable.ListBuffer.empty
 
     private def error(at: Int, message: String): Unit =
-      if errors.size < MaxErrors then errors += TemplateError(at, message)
+      if errors.size < MaxErrors then errors += TemplateError(at, Printable(message, MaxErrorLength))
 
     private def hasMore: Boolean = pos < limit
 
@@ -592,12 +596,15 @@ object MessageFormat2:
           if scope.contains(name) then errors += TemplateError(at, s"$$$name is declared twice")
           scope(name) = k
 
-      val rest = parsed.message.body.fold(
+      val rest      = parsed.message.body.fold(
         p => patternExpressions(p),
         m => m.selectors ++ m.cases.flatMap(c => patternExpressions(c.pattern)),
       )
       rest.foreach(kindOf)
-      (errors.toList.distinct.take(MaxErrors), args.keys.filterNot(used).toList.sorted)
+      val printable = errors.toList.distinct.take(MaxErrors).map(e =>
+        e.copy(message = Printable(e.message, MaxErrorLength))
+      )
+      (printable, args.keys.filterNot(used).toList.sorted)
     end if
   end check
 
@@ -693,10 +700,24 @@ object MessageFormat2:
     case other                => other.toString
 
   private def evaluatePattern(pattern: Pattern, context: Context): String =
+    val out                       = new StringBuilder
+    def append(s: String): Unit   =
+      if out.length + s.length > MaxOutputLength then throw new TooLong
+      out ++= s
+    def piece(p: Pattern): String = p match
+      case Text(value)        => value
+      case Placeholder(expr)  => show(evaluateExpression(expr, context), context.locale)
+      case PatternSequence(_) => ""
     pattern match
-      case Text(value)               => value
-      case Placeholder(expr)         => show(evaluateExpression(expr, context), context.locale)
-      case PatternSequence(patterns) => patterns.map(p => evaluatePattern(p, context)).mkString
+      case PatternSequence(patterns) => patterns.foreach(p => append(piece(p)))
+      case other                     => append(piece(other))
+    out.result()
+
+  // A template repeats its placeholders, and an argument may come from the wire: the text one
+  // template makes is cut off here, and formatting falls back, rather than run out of memory.
+  private[i18n] val MaxOutputLength = 1000000
+
+  final private class TooLong extends RuntimeException("formatted text too long", null, false, false)
 
   private def evaluateMatch(matchStmt: MatchStatement, context: Context): String =
     val selectorValues = matchStmt.selectors.map(s => evaluateExpression(s, context))

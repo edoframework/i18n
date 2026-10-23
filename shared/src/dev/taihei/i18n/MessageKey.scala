@@ -39,11 +39,13 @@ object MessageKey:
   // For keys the library builds from a checked prefix and a checked name.
   private[i18n] def trusted(value: String): MessageKey = value
 
+  /** A key travels as its text; reading checks it. */
   given JsonEncoder[MessageKey] = JsonEncoder.string
   given JsonDecoder[MessageKey] = JsonDecoder.string.mapOrFail(parse)
   given JsonFieldEncoder[MessageKey] = JsonFieldEncoder.string
   given JsonFieldDecoder[MessageKey] = JsonFieldDecoder.string.mapOrFail(parse)
 
+  /** Keys in the order of their text. */
   given Ordering[MessageKey] = Ordering.String
 
 end MessageKey
@@ -52,6 +54,6 @@ end MessageKey
 // printable ASCII as \uXXXX, and cut short after 80 characters.
 private[i18n] object Printable:
 
-  def apply(s: String): String =
-    val cut = if s.length > 80 then s.take(80) + "..." else s
+  def apply(s: String, max: Int = 80): String =
+    val cut = if s.length > max then s.take(max) + "..." else s
     cut.flatMap(c => if c >= ' ' && c <= '~' then c.toString else "\\u%04x".format(c.toInt))

@@ -74,6 +74,11 @@ object ExportCataloguesSpec extends ZIOSpecDefault:
       )
       assertTrue(status == 0, messages(dir, "fr").contains("taihei.validation.nonEmpty"))
     },
+    test("an output directory that cannot be written is a problem, not a crash") {
+      val file           = Files.createTempFile("taihei-export", ".txt")
+      val (status, _, e) = run("--out", file.toString, "--family", "dev.taihei.i18n.tools.Shop")
+      assertTrue(status == 1, e.contains("cannot write"))
+    },
     test("usage errors") {
       assertTrue(
         run()._1 == 2,

@@ -32,6 +32,10 @@ internals needs the changes of step 2. To silence them while migrating:
 | `Language.label` (legacy) | `Language.label: Message` |
 | `CoreMessages.Exceptions.revisionMismatch(expected, actual)` | `revisionMismatchBetween(expected, actual)` |
 | `CoreMessages.Validation.formatErrors(Map[String, List[Message]])` | `formatErrors(Map[String, List[Displayable]])` |
+| CoreMessages in Dutch and French on Scala.js (inline in 4.x) | files now: export with `--scan dev.taihei.i18n` and load with `CatalogueLoader`, or a browser shows English |
+| the case class `Message(args, namedArgs, translationTemplates)`, `copy`, fields | only on `legacy.Message` |
+| `nonEmpty` | `localize(language).nonEmpty` |
+| `given JsonCodec[Message]` needing nothing | the decoder and codec need a `given Catalogues` where summoned or derived |
 | `!!unknown message!!` | gone: the source language always has the key |
 
 ## JSON during a rollout
@@ -41,5 +45,6 @@ message: upgrade readers (clients) first, or keep writing legacy messages until 
 
 ## Libraries built on 4.x
 
-`Language` is binary compatible with 4.x: a library that uses only `Language` (taihei-lorem 4.x)
-keeps working with 5.0.0 on the classpath.
+`Language` is binary compatible with 4.x apart from `label`, which returns the new `Message`: a
+library compiled against 4.x that calls `label` fails with `NoSuchMethodError`. A library that
+uses `Language` but not `label` (taihei-lorem 4.x) keeps working with 5.0.0 on the classpath.

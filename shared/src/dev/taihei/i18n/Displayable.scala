@@ -38,6 +38,7 @@ object Displayable:
       case o: Json.Obj => Text.decode(o)
       case _           => Left("expected a message or a text as an object")
 
+  /** Writes a message, with its source-language text, or a text. */
   given JsonEncoder[Displayable] = Json.encoder.contramap(toJsonAst)
 
   /** Reads a message, a text or a 4.x message; a message's key is looked up in `catalogues`. */
@@ -57,7 +58,7 @@ final case class Text(value: String, language: Language) extends Displayable:
 
   /** The text itself, in whatever language it was written. */
   def localize(
-    reader: Language
+    language: Language
   )(
     using catalogues: Catalogues
   ): String = value
@@ -89,8 +90,13 @@ object Text:
       yield Text(value, language)
     case _           => Left("expected a text as an object")
 
+  /** `{"text":...,"language":...}`, the language as its tag; a built-in's name is read too. */
   given JsonEncoder[Text] = Json.encoder.contramap(toJsonAst)
+
+  /** Reads `{"text":...,"language":...}`; needs no registry. */
   given JsonDecoder[Text] = Json.decoder.mapOrFail(decode)
+
+  /** The encoder and decoder of a text together. */
   given JsonCodec[Text] = JsonCodec(summon[JsonEncoder[Text]], summon[JsonDecoder[Text]])
 
 end Text
@@ -171,9 +177,10 @@ object Message:
   private[i18n] def decode(json: Json, context: MessageArg.Context): Either[String, Message] =
     json match
       case o: Json.Obj if o.get("translationTemplates").isDefined && o.get("key").isEmpty =>
-        summon[JsonDecoder[legacy.Message]].fromJsonAST(o).map(l =>
-          new Message(LegacyKey, Body.Legacy(l))
-        )
+        legacyWithinBounds(o).flatMap: _ =>
+          summon[JsonDecoder[legacy.Message]].fromJsonAST(o).map(l =>
+            new Message(LegacyKey, Body.Legacy(l))
+          )
       case o: Json.Obj                                                                    =>
         for
           key  <- o.get(
@@ -199,10 +206,27 @@ object Message:
         yield msg
       case _ => Left("expected a message as an object")
 
+  // A 4.x message brings its own templates: held to what a catalogue may hold.
+  private val MaxLegacyTemplates = 1000
+
+  private def legacyWithinBounds(o: Json.Obj): Either[String, Unit] =
+    o.get("translationTemplates") match
+      case Some(Json.Obj(templates)) =>
+        val tooLong = templates.exists:
+          case (_, Json.Str(t)) => t.length > MessageFormat2.MaxTemplateLength
+          case _                => false
+        if templates.size > MaxLegacyTemplates then
+          Left(s"a 4.x message with more than $MaxLegacyTemplates templates")
+        else if tooLong then
+          Left(s"a 4.x template longer than ${MessageFormat2.MaxTemplateLength} characters")
+        else Right(())
+      case _                         => Left("\"translationTemplates\" is not an object")
+
   /** Writes a message; with `withText`, the default, also its text in the source language. */
   def encoder(withText: Boolean = true): JsonEncoder[Message] =
     Json.encoder.contramap(toJsonAst(_, withText))
 
+  /** Writes a message with its text in the source language: `encoder(withText = true)`. */
   given JsonEncoder[Message] = encoder()
 
   /**
@@ -215,6 +239,7 @@ object Message:
   ): JsonDecoder[Message] =
     Json.decoder.mapOrFail(decode(_, MessageArg.Context(catalogues, 0)))
 
+  /** The encoder and the decoder together; like the decoder, it needs a `Catalogues` in scope. */
   given (
     using catalogues: Catalogues
   ): JsonCodec[Message] =

@@ -316,6 +316,47 @@ object MessageFamilySpec extends ZIOSpecDefault:
         assertTrue(m.toJson.contains("\"NaN\""), m.toJson.fromJson[Message].map(_.toJson) == Right(m.toJson))
       },
     ),
+    suite("input that multiplies")(
+      test("a 4.x message that repeats a long argument falls back instead of running out of memory") {
+        given Catalogues = Catalogues(Seq(Shapes))
+        val template = "{$0}" * 16000
+        val wire     = s"""{"args":["${"A" * 50000}"],"translationTemplates":{"English":"$template"}}"""
+        val shown    = wire.fromJson[Message].map(_.localize(English))
+        val nested   =
+          s"""{"key":"shape.nested","args":{"field":"f","error":$wire}}""".fromJson[Message].map(_.localize(Dutch))
+        assertTrue(
+          shown.exists(_.length <= MessageFormat2.MaxOutputLength),
+          nested.exists(_.length <= 2 * MessageFormat2.MaxOutputLength),
+          MessageFormat2.format(template, Map("0" -> "A" * 50000)) == template,
+        )
+      },
+      test("a 4.x message with too many or too long templates is refused") {
+        given Catalogues = Catalogues()
+        val many = (1 to 1001).map(i => s""""l$i":"x"""").mkString(",")
+        val long = "x" * (MessageFormat2.MaxTemplateLength + 1)
+        assertTrue(
+          s"""{"args":[],"translationTemplates":{$many}}""".fromJson[Message].left.exists(_.contains("more than 1000")),
+          s"""{"args":[],"translationTemplates":{"English":"$long"}}""".fromJson[Message].left.exists(_.contains(
+            "longer than"
+          )),
+        )
+      },
+      test("template errors escape what they echo, and stay short") {
+        val errors = MessageFormat2.validate(".match {$n :plural} when \u001b\u202e {x} when * {y}") ++
+          MessageFormat2.validate("{" + "\u00e9" * 60000 + "}")
+        assertTrue(
+          errors.nonEmpty,
+          errors.forall(e => e.message.forall(c => c >= ' ' && c <= '~') && e.message.length <= 210),
+        )
+      },
+      test("Text and Message take the reader's language by the same name") {
+        given Catalogues = Catalogues()
+        assertTrue(
+          Text("x", English).localize(language = Dutch) == "x",
+          Orders.cancelled.localize(language = Dutch).nonEmpty,
+        )
+      },
+    ),
     suite("catalogue files")(
       test("a file parses, round-trips and keeps its problems") {
         val file =

@@ -94,7 +94,7 @@ trait TaiheiPublishSettings extends PublishModule {
   def publishVersion = release.gitVersion()
 
   def pomSettings = PomSettings(
-    description = "Composable, type-safe i18n for Scala 3 — locales, messages, ICU-style formatting; JVM & JS",
+    description = "Type-safe i18n for Scala 3: languages, typed message families and catalogues, ICU MessageFormat 2.0 and locale-aware formatting; JVM and Scala.js",
     organization = "dev.taihei",
     url = "https://github.com/taiheiframework/i18n",
     licenses = Seq(License.`Apache-2.0`),

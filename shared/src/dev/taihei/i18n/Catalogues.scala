@@ -137,8 +137,14 @@ final class Catalogues private (
 
   private def fromFile(d: MessageDefinition[?], language: Language)
     : Option[MessageFormat2.Message] =
-    if fromResources && !state.get.attempted((d.family.prefix, language)) then
-      loadResource(d.family, language)
+    if fromResources && PlatformCatalogueResources.available &&
+      !state.get.attempted((d.family.prefix, language))
+    then
+      if state.get.attempted.size < MaxAttempted then loadResource(d.family, language)
+      else
+        report(List(CatalogueProblem(
+          s"more than $MaxAttempted languages asked for: no more are read from the classpath"
+        )))
     state.get.files.get(language).flatMap(_.get(d.key)).flatMap:
       case Entry.Valid(parsed) => Some(parsed)
       case Entry.Invalid       => None
@@ -149,6 +155,8 @@ final class Catalogues private (
         entry match
           case Entry.Valid(parsed) => Some(parsed)
           case _                   => None
+
+  end fromFile
 
   private def loadResource(family: MessageFamily, language: Language): Unit =
     update(s => s.copy(attempted = s.attempted + (family.prefix -> language)))
@@ -324,6 +332,10 @@ object Catalogues:
 
   // Reads no files and keeps no families: it only ever uses the code's own templates.
   private val sourceOnly = new Catalogues(Map.empty, fromResources = false, registers = false)
+
+  // Each language a reader asks for is looked up on the classpath once per family, and the lookup
+  // is remembered. A reader's language can come from a request header: past this many, no more.
+  private val MaxAttempted = 4096
 
   private val MaxChain    = 32
   private val MaxProblems = 1000

@@ -25,7 +25,7 @@ Language("en") == English  // equality and hash by tag
 - `.label: Message` - the language's name as a message of the family
   `CoreMessages.Languages`: hand translations for the built-ins, the platform's names
   (JDK locale data, `Intl.DisplayNames` in JS) for any other language, in any reader's
-  language (`German.label.localize(Language("ja"))` is `ドイツ語`).
+  language (`Language("de").label.localize(Language("ja"))` is `ドイツ語`).
 - `.toString` - `"English"`, `"Dutch"`, `"French"` for the built-ins, else the tag.
 
 Companion:

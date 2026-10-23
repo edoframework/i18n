@@ -11,7 +11,9 @@ object MessageFormat2:
 final case class TemplateError(position: Int, message: String)
 ```
 
-- `format` never throws; a variable without a value shows as `$name`; `locale` is a BCP 47 tag.
+- `format` never throws; a variable without a value shows as `$name`; `locale` is a BCP 47 tag. A
+  template whose text would pass a million characters is returned as written (a message falls back).
+- Error messages escape anything but printable ASCII and are cut short, so they can be logged.
 - `validate` reports syntax errors, unknown functions, a `.match` without a `*` variant, a variant
   with the wrong number of keys, and text after the pattern. A template over 64K characters is
   refused unparsed. Which variables exist is checked by a message definition, not here.

@@ -9,6 +9,9 @@ import scala.util.control.NonFatal
 // Catalogue files on the classpath, read with the class loader of the family that owns them.
 private[i18n] object PlatformCatalogueResources:
 
+  /** Whether there is a classpath to read catalogues from. */
+  val available: Boolean = true
+
   // UTF-8 takes at most four bytes per character.
   private val MaxBytes = Catalogue.MaxLength.toLong * 4
 

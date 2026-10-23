@@ -33,6 +33,7 @@ import dev.taihei.i18n.*
  */
 object ExportCatalogues:
 
+  /** Runs the export with the command line's arguments and exits with its status. */
   def main(args: Array[String]): Unit =
     val status = run(args.toList, System.out, System.err)
     if status != 0 then sys.exit(status)
@@ -77,7 +78,12 @@ object ExportCatalogues:
         if families.isEmpty then
           err.println("no message family found"); 2
         else
-          val status = write(dir, families, entries, out, err)
+          val status =
+            try write(dir, families, entries, out, err)
+            catch
+              case NonFatal(e) =>
+                err.println(s"cannot write to $dir: ${e.getMessage}")
+                1
           if missing.nonEmpty then 1 else status
 
   private def write(

@@ -40,6 +40,19 @@ object CatalogueLoaderSpec extends ZIOSpecDefault:
         heard == List(German),
       )
     },
+    test("CoreMessages show in English until their exported Dutch file is loaded") {
+      given c: Catalogues = Catalogues(CoreMessages.families)
+      val min    = CoreMessages.Validation.stringMinLength(min = 8)
+      val before = min.localize(Language.Dutch)
+      val file   =
+        """{"format":1,"language":"nl","messages":{"taihei.validation.stringMinLength":"lengte moet minimaal {$min} zijn"}}"""
+      for problems <- load(c, Language.Dutch, dataUrl(file))
+      yield assertTrue(
+        problems.isEmpty,
+        before == "length should be greater than 8",
+        min.localize(Language.Dutch) == "lengte moet minimaal 8 zijn",
+      )
+    },
     test("a file in another language, a file that is no catalogue, and a failed fetch are problems") {
       val c = Catalogues(Seq(Orders))
       for

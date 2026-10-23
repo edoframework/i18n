@@ -224,7 +224,9 @@ does not.
 families on the application's classpath, those of libraries such as `CoreMessages` included, and
 writes one merged file per language: `<out>/<tag>.json`. The file of the source language is the
 one to hand to translators; the others hold the catalogue files on the classpath over the inline
-translations. It is an ordinary run step, not a build plugin:
+translations. It runs on the JVM, so it runs in a JVM module whose classpath holds the families:
+for a cross-built application, the JVM side of its shared code (a family defined only in Scala.js
+code cannot be exported). It is an ordinary run step, not a build plugin:
 
 ```scala
 // Mill: a module with the tools on its run classpath
@@ -246,7 +248,7 @@ Templates that fail their checks are left out and printed, and make the exit sta
 
 ```scala
 // Any platform: your families and the catalogues you have
-assertTrue(Catalogues.verify(Seq(Orders), catalogues, required = Set(Language.Dutch)).isEmpty)
+assertTrue(Catalogues.verify(Seq(Orders), Seq(dutchFile), required = Set(Language.Dutch)).isEmpty)
 
 // JVM: the files on the classpath
 assertTrue(ClasspathCatalogues.verify(Seq(Orders), Seq(Dutch, French), required = Set(Dutch)).isEmpty)
@@ -277,8 +279,13 @@ language:
 - A `Text` is `{"text":"Disk full","language":"en"}`.
 - The 4.x shape (`args`, `namedArgs`, `translationTemplates`) is still read, as a legacy message
   under the key `legacy`, so stored 4.x JSON and a 4.x peer keep working.
-- Input is bounded: messages nest at most 8 deep, a list holds at most 10000 elements, a catalogue
-  is at most 4M characters, 100000 messages and 16 levels of JSON nesting.
+- Input is bounded: messages nest at most 8 deep, a list holds at most 10000 elements, a 4.x
+  message brings at most 1000 templates of at most 64K characters, a catalogue is at most 4M
+  characters, 100000 messages and 16 levels of JSON nesting, and one template formats to at most
+  a million characters (past that it falls back).
+- On the JVM each language a reader asks for is looked up on the classpath once per family, up to
+  4096 lookups per registry. Narrow a language from a request header to the languages you
+  support before you show messages in it.
 
 Versioning rules for keys:
 
@@ -357,6 +364,10 @@ Then move the messages to families, one family at a time:
 | `PlatformNumberFormatter`, `PlatformDateTimeFormatter`, `PlatformLocales`, `PlatformLanguageNames` | internal now: format through a template |
 | `Language.label: legacy Message` | `Language.label: Message`, shown in any reader's language |
 | `CoreMessages.X.member(args)` | the same names, with named, typed arguments |
+| CoreMessages in Dutch and French on Scala.js, inline in 4.x | catalogue files now: export them (`--scan dev.taihei.i18n`) and load them with `CatalogueLoader`, or a browser shows English |
+| the case class `Message(args, namedArgs, translationTemplates)`, `copy`, its fields | only on `legacy.Message` |
+| `message.nonEmpty` | `message.localize(language).nonEmpty` |
+| `given JsonCodec[Message]`, needing nothing | `JsonEncoder[Message]` as before; `JsonDecoder` and `JsonCodec[Message]` need a `given Catalogues` where they are summoned or derived |
 | `CoreMessages.Exceptions.revisionMismatch(expected, actual)` | `CoreMessages.Exceptions.revisionMismatchBetween(expected, actual)` |
 | `CoreMessages.Validation.formatErrors(Map[String, List[Message]])` | `formatErrors(Map[String, List[Displayable]])`; each field error is shown in the reader's language |
 | `!!unknown message!!` | gone: the source language always has the key |
@@ -369,9 +380,13 @@ JSON: stored or exchanged 4.x messages stay readable as legacy messages. A messa
 produces is not readable by a 4.x reader: during a rollout, upgrade the readers (the clients)
 first, or keep writing legacy messages until they have.
 
-`Language` itself is unchanged and binary compatible with 4.x, so a library built against
-taihei-i18n 4.0.x that uses `Language` only, such as taihei-lorem 4.x, keeps working with 5.0.0
-on the classpath.
+`Language` is unchanged and binary compatible with 4.x apart from `label`, which now returns the
+new `Message`: a library built against 4.0.x that calls `label` fails with `NoSuchMethodError`.
+A library that uses `Language` but not `label`, such as taihei-lorem 4.x, keeps working with
+5.0.0 on the classpath.
+
+In Scala.js, CoreMessages' Dutch and French were inline in 4.x and are files in 5.x: a browser
+application shows them in English until it exports them and loads them like its own catalogues.
 
 ## Testing
 

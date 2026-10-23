@@ -43,7 +43,8 @@ Orders.cancelled.localize(Language("lb-LU"))
 ## JVM: the classpath
 
 Files at `META-INF/taihei-i18n/<prefix>/<tag>.json` (canonical tag, `zh-Hant.json`), read with the
-family's class loader the first time a language is needed, at most 16 MB, UTF-8 only. Keys of
+family's class loader the first time a language is needed, at most 16 MB, UTF-8 only, and at
+most 4096 lookups per registry: narrow a request header's language to the supported ones. Keys of
 another family in a family's file are left out with a problem.
 
 - `ClasspathCatalogues.read(family, language): Option[Either[CatalogueProblem, Catalogue]]`.
@@ -77,7 +78,8 @@ source language.
 dev.taihei.i18n.tools.ExportCatalogues --out <dir> [--scan <package>]... [--family <object>]...
 ```
 
-Writes `<dir>/<tag>.json` per language, merging every family found (libraries included): the
+Runs on the JVM, in a module whose classpath holds the families (for a cross-built app, the
+JVM side of its shared code). Writes `<dir>/<tag>.json` per language, merging every family found (libraries included): the
 source templates for families in that language, else classpath files over inline translations.
 Failing templates are left out and printed (exit 1); usage errors exit 2. Run as `runMain` (Mill)
 or a forked `run` (sbt).
