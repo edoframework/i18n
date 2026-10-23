@@ -91,6 +91,25 @@ object Language:
     ),
   )
 
+  // The built-ins' names in each built-in, by hand, as earlier versions shipped them.
+  private val builtInNameTable: Map[String, Map[String, String]] = Map(
+    "en" -> Map("en" -> "English", "nl" -> "Engels", "fr" -> "Anglais"),
+    "nl" -> Map("en" -> "Dutch", "nl" -> "Nederlands", "fr" -> "Néerlandais"),
+    "fr" -> Map("en" -> "French", "nl" -> "Frans", "fr" -> "Français"),
+  )
+
+  /**
+   * The name of `language` for a reader of the language tagged `reader`: a built-in's hand
+   * translation, else the platform's name, else the tag.
+   */
+  private[i18n] def nameIn(language: Language, reader: String): String =
+    val readerBase = reader.takeWhile(_ != '-')
+    builtInNameTable
+      .get(language.tag)
+      .flatMap(names => names.get(reader).orElse(names.get(readerBase)))
+      .orElse(PlatformLanguageNames.displayName(language.tag, reader))
+      .getOrElse(language.tag)
+
   // Longer than any tag in practical use: RFC 5646 §4.4.1 asks implementations for at least 35
   // characters for language, extlang, script, region and variant, and tags with extensions stay
   // well under 100.

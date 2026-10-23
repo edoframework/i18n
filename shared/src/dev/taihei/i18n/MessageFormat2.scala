@@ -1,49 +1,148 @@
 package dev.taihei.i18n
 
+import java.time.{LocalDate, LocalDateTime, LocalTime}
+
 import scala.collection.mutable
 import scala.util.Try
+import scala.util.control.NonFatal
 
+/**
+ * A problem in a MessageFormat 2.0 template: the offset of the character where it was found, and
+ * what is wrong there.
+ */
+final case class TemplateError(position: Int, message: String):
+  override def toString: String = s"at $position: $message"
+
+/**
+ * ICU MessageFormat 2.0 templates, in the dialect taihei-i18n has always read: placeholders
+ * `{$name}`, functions `{$n :number}`, declarations `.input` and `.local` (or `.let`), and
+ * `.match {$n :plural}` with variants `when one {...}` and a default `when * {...}`.
+ *
+ * {{{
+ * MessageFormat2.format("Hello {$name}", Map("name" -> "Alice"), "en")   // Hello Alice
+ * MessageFormat2.validate("Hello {$name")                                 // one TemplateError
+ * }}}
+ */
 object MessageFormat2:
 
-  // AST types for MessageFormat 2.0
-  sealed trait Expression
-  case class Variable(name: String) extends Expression
-  case class Literal(value: String) extends Expression
+  /**
+   * The template formatted with `args` in the locale given by the BCP 47 tag `locale`. A variable
+   * without a value shows as `$name`; it never throws: a template that cannot be formatted comes
+   * back as it was written.
+   */
+  def format(
+    template: String,
+    args: Map[String, Any] = Map.empty,
+    locale: String = "en",
+  ): String =
+    tryFormat(parse(template).message, args, locale).getOrElse(template)
 
-  case class FunctionAnnotation(
+  /**
+   * What is wrong with the template, or nothing when it is valid: syntax, a function this library
+   * does not know, a `.match` without a `*` variant, a variant with the wrong number of keys. Which
+   * variables exist is not known here; a message definition checks that against its arguments.
+   */
+  def validate(template: String): List[TemplateError] =
+    if template.length > MaxTemplateLength then
+      List(TemplateError(0, s"the template is longer than $MaxTemplateLength characters"))
+    else
+      val parsed = parse(template)
+      (parsed.errors ++ structureErrors(parsed.message)).take(MaxErrors)
+
+  // A catalogue is input the application did not compile: a template longer than this is refused
+  // before it is parsed. Parsing is linear and never recursive, so this bounds time and memory.
+  private[i18n] val MaxTemplateLength = 65536
+
+  // Errors past this many tell nothing new and only cost memory.
+  private val MaxErrors = 100
+
+  // ---------------------------------------------------------------------------------------------
+  // AST
+  // ---------------------------------------------------------------------------------------------
+
+  sealed private[i18n] trait Expression
+  final private[i18n] case class Variable(name: String, position: Int = 0) extends Expression
+  final private[i18n] case class Literal(value: String) extends Expression
+
+  final private[i18n] case class FunctionAnnotation(
     expr: Expression,
     function: String,
-    options: Map[String, String] = Map.empty)
+    options: Map[String, String] = Map.empty,
+    position: Int = 0)
     extends Expression
 
-  sealed trait Pattern
-  case class Text(value: String) extends Pattern
-  case class Placeholder(expr: Expression) extends Pattern
-  case class PatternSequence(patterns: List[Pattern]) extends Pattern
+  sealed private[i18n] trait Pattern
+  final private[i18n] case class Text(value: String) extends Pattern
+  final private[i18n] case class Placeholder(expr: Expression) extends Pattern
+  final private[i18n] case class PatternSequence(patterns: List[Pattern]) extends Pattern
 
-  sealed trait Declaration
-  case class InputDeclaration(name: String, expr: Expression) extends Declaration
-  case class LocalDeclaration(name: String, expr: Expression) extends Declaration
+  sealed private[i18n] trait Declaration:
+    def name: String
+    def expr: Expression
+    def position: Int
 
-  case class MatchCase(keys: List[String], pattern: Pattern)
-  case class MatchStatement(selectors: List[Expression], cases: List[MatchCase])
+  final private[i18n] case class InputDeclaration(
+    name: String,
+    expr: Expression,
+    position: Int = 0)
+    extends Declaration
 
-  case class Message(
+  final private[i18n] case class LocalDeclaration(
+    name: String,
+    expr: Expression,
+    position: Int = 0)
+    extends Declaration
+
+  final private[i18n] case class MatchCase(
+    keys: List[String],
+    pattern: Pattern,
+    position: Int = 0)
+
+  final private[i18n] case class MatchStatement(
+    selectors: List[Expression],
+    cases: List[MatchCase],
+    position: Int = 0)
+
+  final private[i18n] case class Message(
     declarations: List[Declaration] = Nil,
     body: Either[Pattern, MatchStatement])
 
-  // Declaration and match keywords
+  final private[i18n] case class Parsed(message: Message, errors: List[TemplateError])
+
+  private[i18n] def parse(template: String): Parsed =
+    val parser = new Parser(template)
+    val msg    = parser.parse()
+    Parsed(msg, parser.errors.toList)
+
+  // The functions this library formats. Anything else is an error in validate, and formats as
+  // the value itself.
+  private[i18n] val Functions: Set[String] =
+    Set("number", "integer", "datetime", "date", "time", "plural", "select", "string")
+
+  // ---------------------------------------------------------------------------------------------
+  // Parser
+  // ---------------------------------------------------------------------------------------------
+
   private val KeywordInput = ".input"
   private val KeywordLet   = ".let"
+  private val KeywordLocal = ".local"
   private val KeywordMatch = ".match"
   private val KeywordWhen  = "when"
 
-  // Imperative recursive-descent parser for ICU MessageFormat 2.0.
-  // Uses var/return intentionally for parser performance and simplicity.
-  class Parser(template: String):
-    private var pos = 0
+  // An imperative recursive-descent parser that never recurses into itself: a variant's pattern is
+  // parsed in place within its braces, and nothing nests deeper than a placeholder. It recovers
+  // from every error the way earlier versions did, so format keeps its output for any template,
+  // and records each recovery as a TemplateError for validate.
+  final private[i18n] class Parser(template: String):
+    private var pos   = 0
+    private var limit = template.length
 
-    private def hasMore: Boolean = pos < template.length
+    val errors: mutable.ListBuffer[TemplateError] = mutable.ListBuffer.empty
+
+    private def error(at: Int, message: String): Unit =
+      if errors.size < MaxErrors then errors += TemplateError(at, message)
+
+    private def hasMore: Boolean = pos < limit
 
     private def peek(): Option[Char] =
       if hasMore then Some(template(pos)) else None
@@ -54,33 +153,33 @@ object MessageFormat2:
       c
 
     private def skipWhitespace(): Unit =
-      while hasMore && template(pos).isWhitespace do
-        pos += 1
+      while hasMore && template(pos).isWhitespace do pos += 1
 
-    // The first position from `from` that String.trim would keep (a char above U+0020). The
-    // keyword checks look at the template in place instead of copying the rest of it per check,
-    // which made parsing quadratic in the number of declarations and cases.
+    // The first position from `from` that String.trim would keep (a char above U+0020).
     private def firstNonBlank(from: Int): Int =
       var i = from
-      while i < template.length && template(i) <= ' ' do i += 1
+      while i < limit && template(i) <= ' ' do i += 1
       i
 
-    private def isPatternTerminator(c: Char): Boolean =
-      c == '{' || c == '\n' || c == '|'
+    private def startsWithKeyword(keyword: String): Boolean =
+      template.startsWith(keyword, pos) && pos + keyword.length <= limit
 
     private def parseIdentifier(): String =
       skipWhitespace()
       val start = pos
-      while hasMore && (template(pos).isLetterOrDigit || template(pos) == '_') do
-        pos += 1
+      while hasMore && (template(pos).isLetterOrDigit || template(pos) == '_') do pos += 1
       template.substring(start, pos)
 
     private def parseVariable(): Variable =
-      advance() // skip $
-      Variable(parseIdentifier())
+      val at = pos
+      advance() // $
+      val name = parseIdentifier()
+      if name.isEmpty then error(at, "a variable needs a name after $")
+      Variable(name, at)
 
     private def parseLiteral(): Literal =
-      advance() // skip (
+      val at = pos
+      advance() // (
       val start = pos
       var depth = 1
       while hasMore && depth > 0 do
@@ -90,40 +189,43 @@ object MessageFormat2:
           case _   =>
         if depth > 0 then pos += 1
       val value = template.substring(start, pos)
-      if hasMore then advance() // skip closing )
+      if hasMore then advance() // )
+      else error(at, "a literal is not closed with )")
       Literal(value.trim)
 
-    private def parseFunctionOptions(): Map[String, String] =
-      val options = mutable.Map[String, String]()
-      skipWhitespace()
+    end parseLiteral
 
+    private def parseFunctionOptions(): Map[String, String] =
+      val options = mutable.LinkedHashMap.empty[String, String]
+      skipWhitespace()
       while hasMore && peek().exists(_ != '}') do
         val startPos = pos
         val key      = parseIdentifier()
+        if key.isEmpty then error(startPos, "expected an option name")
         skipWhitespace()
         if peek().contains('=') then
-          advance() // skip =
+          advance()
           skipWhitespace()
-          val value = if peek().contains('"') then
-            advance() // skip opening quote
-            val start = pos
-            while hasMore && template(pos) != '"' do pos += 1
-            val v     = template.substring(start, pos)
-            if hasMore then advance() // skip closing quote
-            v
-          else
-            parseIdentifier()
-          if key.nonEmpty then
-            options(key) = value
+          val valueAt = pos
+          val value   =
+            if peek().contains('"') then
+              advance()
+              val start = pos
+              while hasMore && template(pos) != '"' do pos += 1
+              val v     = template.substring(start, pos)
+              if hasMore then advance()
+              else error(valueAt, "a quoted option value is not closed")
+              v
+            else parseIdentifier()
+          if value.isEmpty then error(valueAt, s"the option '$key' needs a value")
+          if key.nonEmpty then options(key) = value
+        else if key.nonEmpty then error(pos, s"the option '$key' needs = and a value")
+        end if
         skipWhitespace()
-        // Prevent infinite loop - if we didn't advance, break
-        if pos == startPos then
-          if hasMore && template(pos) != '}' then
-            pos += 1 // Force advance to avoid infinite loop
+        // Always move on: a character that starts nothing is skipped.
+        if pos == startPos && hasMore && template(pos) != '}' then pos += 1
       end while
-
       options.toMap
-
     end parseFunctionOptions
 
     private def parseExpression(): Expression =
@@ -131,36 +233,48 @@ object MessageFormat2:
       val expr = parseSimpleExpression()
       skipWhitespace()
       if peek().contains(':') then
-        advance() // skip :
+        val at       = pos
+        advance()
         val function = parseIdentifier()
+        if function.isEmpty then error(at, "a function needs a name after :")
         val options  = parseFunctionOptions()
-        FunctionAnnotation(expr, function, options)
-      else
-        expr
+        FunctionAnnotation(expr, function, options, at)
+      else expr
 
     private def parseSimpleExpression(): Expression =
       skipWhitespace()
       peek() match
         case Some('$') => parseVariable()
         case Some('(') => parseLiteral()
-        case _         => Variable(parseIdentifier())
+        case _         =>
+          // Earlier versions read a bare name as a variable; format still does, validate refuses.
+          val at   = pos
+          val name = parseIdentifier()
+          error(
+            at,
+            if name.isEmpty then "expected $variable or (literal)"
+            else s"write {$$$name} for a variable or {($name)} for text",
+          )
+          Variable(name, at)
+
+    end parseSimpleExpression
 
     private def parsePlaceholder(): Placeholder =
-      advance() // skip {
+      val at = pos
+      advance() // {
       val expr = parseExpression()
       skipWhitespace()
-      if peek().contains('}') then advance() // skip }
+      if peek().contains('}') then advance()
+      else error(at, "a placeholder is not closed with }")
       Placeholder(expr)
 
-    // Parses a pattern (text interspersed with {placeholders}).
-    // When terminateAtNewline=true, stops at \n or | (used after declarations).
-    // When terminateAtNewline=false, consumes the entire remaining input.
+    // Text and {placeholders} up to `limit`, or, when terminateAtNewline, up to a line break or |
+    // (the pattern after declarations ends there in this dialect).
     private def parsePatternUntil(terminateAtNewline: Boolean): Pattern =
       val patterns = mutable.ListBuffer[Pattern]()
 
       def atTerminator: Boolean =
-        if terminateAtNewline then peek().exists(c => c == '\n' || c == '|')
-        else false
+        terminateAtNewline && peek().exists(c => c == '\n' || c == '|')
 
       while hasMore && !atTerminator do
         peek() match
@@ -169,235 +283,177 @@ object MessageFormat2:
           case _         =>
             val start = pos
             while hasMore && template(pos) != '{' &&
-              !(terminateAtNewline && isPatternTerminator(template(pos)))
-            do
-              pos += 1
-            if pos > start then
-              patterns += Text(template.substring(start, pos))
-            else if hasMore then
-              pos += 1 // Force advance to avoid infinite loop
+              !(terminateAtNewline && (template(pos) == '\n' || template(pos) == '|'))
+            do pos += 1
+            if pos > start then patterns += Text(template.substring(start, pos))
+            else if hasMore then pos += 1
 
       if patterns.isEmpty then Text("")
       else if patterns.size == 1 then patterns.head
       else PatternSequence(patterns.toList)
-
     end parsePatternUntil
+
+    private def parseDeclaredName(at: Int): String =
+      skipWhitespace()
+      if peek().contains('$') then advance()
+      else error(pos, "expected $ before the declared name")
+      val name = parseIdentifier()
+      if name.isEmpty then error(at, "a declaration needs a name")
+      name
+
+    private def expectClosingBrace(at: Int): Unit =
+      skipWhitespace()
+      if peek().contains('}') then advance()
+      else error(at, "a declaration is not closed with }")
 
     private def parseDeclaration(): Option[Declaration] =
       skipWhitespace()
-      if !hasMore then return None
-
-      if hasMore && template.startsWith(KeywordInput, pos) then
+      val at = pos
+      if !hasMore then None
+      else if startsWithKeyword(KeywordInput) then
         pos += KeywordInput.length
         skipWhitespace()
-
-        // Parse the declaration which may or may not be in braces
+        val hadBrace = peek().contains('{')
+        if hadBrace then advance() else error(pos, "expected { after .input")
+        val name     = parseDeclaredName(at)
+        skipWhitespace()
+        val expr     =
+          if hadBrace && peek().contains(':') then
+            val fnAt     = pos
+            advance()
+            val function = parseIdentifier()
+            if function.isEmpty then error(fnAt, "a function needs a name after :")
+            val options  = parseFunctionOptions()
+            expectClosingBrace(at)
+            FunctionAnnotation(Variable(name, at), function, options, fnAt)
+          else
+            if hadBrace then expectClosingBrace(at)
+            Variable(name, at)
+        Some(InputDeclaration(name, expr, at))
+      else if startsWithKeyword(KeywordLocal) || startsWithKeyword(KeywordLet) then
+        pos += (if startsWithKeyword(KeywordLocal) then KeywordLocal.length else KeywordLet.length)
+        skipWhitespace()
         val hadBrace = peek().contains('{')
         if hadBrace then advance()
-
-        // Parse variable name
-        skipWhitespace()
-        val name = if peek().contains('$') then
-          advance() // skip $
-          parseIdentifier()
-        else
-          parseIdentifier()
-
-        // Parse expression (which may include :function)
-        skipWhitespace()
-        val expr = if hadBrace && peek().contains(':') then
-          // Parse function annotation
-          advance() // skip :
-          val function = parseIdentifier()
-          val options  = parseFunctionOptions()
-          skipWhitespace()
-          if peek().contains('}') then advance() // skip closing brace
-          FunctionAnnotation(Variable(name), function, options)
-        else if hadBrace then
-          // Just the variable itself
-          skipWhitespace()
-          if peek().contains('}') then advance()
-          Variable(name)
-        else
-          // No brace, just variable
-          Variable(name)
-
-        Some(InputDeclaration(name, expr))
-      else if hasMore && template.startsWith(KeywordLet, pos) then
-        pos += KeywordLet.length
-        skipWhitespace()
-
-        val hadBrace = peek().contains('{')
-        if hadBrace then advance()
-
-        val name = if peek().contains('$') then
-          advance()
-          parseIdentifier()
-        else
-          parseIdentifier()
-
+        val name     = parseDeclaredName(at)
         skipWhitespace()
         if peek().contains('=') then advance()
+        else error(pos, s"expected = after $$$name")
         skipWhitespace()
-
-        val expr = parseExpression()
-
-        if hadBrace then
-          skipWhitespace()
-          if peek().contains('}') then advance()
-
-        Some(LocalDeclaration(name, expr))
-      else
-        None
-
+        val expr     =
+          if !hadBrace && peek().contains('{') then
+            // The MF2 form `.local $x = {expression}`.
+            val exprAt = pos
+            advance()
+            val e      = parseExpression()
+            expectClosingBrace(exprAt)
+            e
+          else parseExpression()
+        if hadBrace then expectClosingBrace(at)
+        Some(LocalDeclaration(name, expr, at))
+      else None
       end if
-
     end parseDeclaration
 
+    private def parseKey(): String =
+      if peek().contains('*') then
+        advance()
+        "*"
+      else if peek().contains('=') then
+        advance()
+        "=" + parseIdentifier()
+      else
+        val id = parseIdentifier()
+        if id.nonEmpty then id
+        else
+          val numStart = pos
+          if peek().exists(c => c == '-' || c == '+') then advance()
+          while hasMore && template(pos).isDigit do pos += 1
+          if pos > numStart then template.substring(numStart, pos) else ""
+
     private def parseMatchStatement(): MatchStatement =
+      val at        = pos
       pos += KeywordMatch.length
-      skipWhitespace()
-
-      // Parse selectors (should be in braces)
       val selectors = mutable.ListBuffer[Expression]()
-
-      // Look for expressions in braces
-      while hasMore && peek().exists(_ != '\n') do
+      var more      = true
+      while more do
         skipWhitespace()
         if peek().contains('{') then
-          advance() // skip {
-          val expr = parseExpression()
+          val selectorAt = pos
+          advance()
+          val expr       = parseExpression()
           skipWhitespace()
-          if peek().contains('}') then advance() // skip }
+          if peek().contains('}') then advance()
+          else error(selectorAt, "a selector is not closed with }")
           selectors += expr
-        else
-          // No more selectors
-          if peek().exists(_ != '\n') then
-            // Advance to end of line
-            while hasMore && template(pos) != '\n' do pos += 1
+        else more = false
+      if selectors.isEmpty then error(at, ".match needs at least one {selector}")
 
-      if peek().contains('\n') then advance()
-
-      // Parse cases
       val cases    = mutable.ListBuffer[MatchCase]()
       var continue = true
       while hasMore && continue do
         skipWhitespace()
-        if hasMore && template.startsWith(KeywordWhen, pos) then
+        if hasMore && startsWithKeyword(KeywordWhen) then
+          val caseAt = pos
           pos += KeywordWhen.length
           skipWhitespace()
-
-          // Parse keys
-          val keys = mutable.ListBuffer[String]()
+          val keys   = mutable.ListBuffer[String]()
           while hasMore && peek().exists(c => c != '{' && c != '\n') do
             val startPos = pos
-            // Parse match key (can be identifier, number, or special like * or =N)
-            val key      = if peek().contains('*') then
-              advance()
-              "*"
-            else if peek().contains('=') then
-              advance() // skip =
-              val num = parseIdentifier()
-              "=" + num
-            else
-              // Parse regular identifier or number
-              val id = parseIdentifier()
-              if id.nonEmpty then id
-              else
-                // Try to parse a number directly
-                val numStart = pos
-                if peek().exists(c => c == '-' || c == '+') then advance()
-                while hasMore && template(pos).isDigit do pos += 1
-                if pos > numStart then template.substring(numStart, pos) else ""
-            if key.nonEmpty then
-              keys += key
+            val key      = parseKey()
+            if key.nonEmpty then keys += key
             skipWhitespace()
-            // Prevent infinite loop
             if pos == startPos then
               if hasMore && !peek().exists(c => c == '{' || c == '\n') then
+                error(pos, s"'${template(pos)}' cannot start a key")
                 pos += 1
-              else
-                pos = template.length
-          end while
-
-          // Parse pattern
-          skipWhitespace()
-          if peek().contains('{') then advance()
-          val patternStart = pos
-          var depth        = 1
-          while hasMore && depth > 0 do
-            template(pos) match
-              case '{' => depth += 1
-              case '}' => depth -= 1
-              case _   =>
-            if depth > 0 then pos += 1
-          val patternStr   = template.substring(patternStart, pos)
-          if hasMore then advance() // skip closing }
-
-          // Parse the pattern inline to avoid recursive parser creation
-          val pattern = if patternStr.isEmpty then
-            Text("")
-          else
-            // Simple pattern parsing - just handle text and placeholders
-            val parts = mutable.ListBuffer[Pattern]()
-            var i     = 0
-            while i < patternStr.length do
-              if patternStr(i) == '{' && i + 1 < patternStr.length && patternStr(i + 1) == '$'
-              then
-                // Found a placeholder
-                val start = i
-                i += 2 // skip {$
-                while i < patternStr.length && patternStr(i) != '}' do i += 1
-                if i < patternStr.length then
-                  val varName = patternStr.substring(start + 2, i)
-                  parts += Placeholder(Variable(varName))
-                  i += 1 // skip }
-              else
-                // Regular text
-                val textStart = i
-                while i < patternStr.length && patternStr(i) != '{' do i += 1
-                if i > textStart then
-                  parts += Text(patternStr.substring(textStart, i))
-                else if i < patternStr.length then
-                  // We hit a { that isn't followed by $, treat it as text
-                  i += 1 // Skip the {
-                  parts += Text("{")
-            end while
-            if parts.isEmpty then Text("")
-            else if parts.size == 1 then parts.head
-            else PatternSequence(parts.toList)
-          cases += MatchCase(keys.toList, pattern)
+              else pos = limit
+          if keys.isEmpty then error(caseAt, "a variant needs at least one key")
 
           skipWhitespace()
-          if peek().contains('\n') then advance()
-        else
-          // No more when clauses
-          continue = false
+          val pattern =
+            if peek().contains('{') then
+              val open  = pos
+              advance()
+              val start = pos
+              var depth = 1
+              var end   = pos
+              while end < limit && depth > 0 do
+                template(end) match
+                  case '{' => depth += 1
+                  case '}' => depth -= 1
+                  case _   =>
+                if depth > 0 then end += 1
+              if depth > 0 then error(open, "a variant's pattern is not closed with }")
+              // The pattern is parsed in place, within its braces.
+              val outer = limit
+              limit = end
+              pos = start
+              val p     = parsePatternUntil(terminateAtNewline = false)
+              limit = outer
+              pos = math.min(end + 1, limit)
+              p
+            else
+              error(pos, "a variant needs a {pattern}")
+              Text("")
+          cases += MatchCase(keys.toList, pattern, caseAt)
+        else continue = false
         end if
       end while
-
-      MatchStatement(selectors.toList, cases.toList)
-
+      MatchStatement(selectors.toList, cases.toList, at)
     end parseMatchStatement
 
     def parse(): Message =
       val declarations = mutable.ListBuffer[Declaration]()
-
-      // Parse declarations
-      var continueDeclarations = true
-      while hasMore && continueDeclarations do
+      var more         = true
+      while hasMore && more do
         val savedPos = pos
         parseDeclaration() match
-          case Some(decl) =>
-            declarations += decl
-            skipWhitespace()
-            if peek().contains('\n') then advance()
+          case Some(decl) => declarations += decl
           case None       =>
             pos = savedPos
-            continueDeclarations = false
+            more = false
 
-      // Parse body (pattern or match statement)
-      // Check for .match without skipping whitespace first (to preserve whitespace-only messages)
       val body =
         if hasMore && template.startsWith(KeywordMatch, firstNonBlank(pos)) then
           skipWhitespace()
@@ -405,53 +461,180 @@ object MessageFormat2:
         else if declarations.isEmpty && pos == 0 then
           Left(parsePatternUntil(terminateAtNewline = false))
         else
+          skipWhitespace()
           Left(parsePatternUntil(terminateAtNewline = true))
 
+      if firstNonBlank(pos) < limit then
+        error(
+          pos,
+          body.fold(
+            _ => "text after the pattern: after declarations a pattern ends at the line break",
+            _ => "text after the last variant",
+          ),
+        )
       Message(declarations.toList, body)
-
     end parse
 
   end Parser
 
-  // Runtime evaluation
-  case class Context(
+  // ---------------------------------------------------------------------------------------------
+  // Checks
+  // ---------------------------------------------------------------------------------------------
+
+  private def expressions(message: Message): List[Expression] =
+    def ofPattern(p: Pattern): List[Expression] = p match
+      case Text(_)             => Nil
+      case Placeholder(e)      => List(e)
+      case PatternSequence(ps) => ps.flatMap(ofPattern)
+    message.declarations.map(_.expr) ++ message.body.fold(
+      ofPattern,
+      m => m.selectors ++ m.cases.flatMap(c => ofPattern(c.pattern)),
+    )
+
+  private def structureErrors(message: Message): List[TemplateError] =
+    val functions = expressions(message).collect:
+      case FunctionAnnotation(_, f, _, at) if f.nonEmpty && !Functions(f) =>
+        TemplateError(at, s"unknown function :$f")
+    val matches   = message.body.toOption.toList.flatMap: m =>
+      val arity    = m.selectors.size
+      val counts   = m.cases.collect:
+        case c if arity > 0 && c.keys.nonEmpty && c.keys.size != arity =>
+          TemplateError(
+            c.position,
+            s"a variant needs $arity keys, one per selector, not ${c.keys.size}",
+          )
+      val fallback =
+        if m.cases.exists(c => c.keys.nonEmpty && c.keys.forall(_ == "*")) then Nil
+        else
+          List(TemplateError(m.position, ".match needs a default variant with * for every selector"))
+      counts ++ fallback
+    functions ++ matches
+
+  end structureErrors
+
+  // What a function accepts and what it gives, per kind of value.
+  private def accepts(function: String, kind: ArgKind): Boolean = kind match
+    case ArgKind.Unknown => true
+    case _               =>
+      function match
+        case "number" | "integer" | "plural" => kind == ArgKind.Number
+        case "datetime" => kind == ArgKind.Date || kind == ArgKind.DateTime || kind == ArgKind.Time
+        case "date"     => kind == ArgKind.Date || kind == ArgKind.DateTime
+        case "time"     => kind == ArgKind.Time || kind == ArgKind.DateTime
+        case _          => true
+
+  private def kindAfter(function: String, kind: ArgKind): ArgKind = function match
+    case "number" | "integer" | "plural" => ArgKind.Number
+    case "datetime" | "date" | "time"    => ArgKind.Text
+    case _                               => kind
+
+  private def describe(kind: ArgKind): String = kind match
+    case ArgKind.Text     => "text"
+    case ArgKind.Number   => "a number"
+    case ArgKind.Date     => "a date"
+    case ArgKind.DateTime => "a date and time"
+    case ArgKind.Time     => "a time"
+    case ArgKind.Unknown  => "a value"
+
+  /**
+   * The template checked against a message's arguments: everything validate checks, plus that
+   * each variable is an argument or declared before its use, and that each function fits the
+   * kind of its value. The second list names the arguments the template does not use.
+   */
+  private[i18n] def check(template: String, args: Map[String, ArgKind])
+    : (List[TemplateError], List[String]) =
+    if template.length > MaxTemplateLength then (validate(template), Nil)
+    else
+      val parsed = parse(template)
+      val errors = mutable.ListBuffer.empty[TemplateError]
+      errors ++= parsed.errors
+      errors ++= structureErrors(parsed.message)
+      val used   = mutable.Set.empty[String]
+      val scope  = mutable.Map.empty[String, ArgKind] ++ args
+
+      def kindOf(expr: Expression): ArgKind = expr match
+        case Variable(name, at)                   =>
+          if name.isEmpty then ArgKind.Unknown
+          else
+            scope.get(name) match
+              case Some(k) =>
+                used += name
+                k
+              case None    =>
+                errors += TemplateError(at, s"$$$name is not an argument of this message")
+                ArgKind.Unknown
+        case Literal(value)                       =>
+          if value.toDoubleOption.isDefined then ArgKind.Number else ArgKind.Text
+        case FunctionAnnotation(inner, fn, _, at) =>
+          val k = kindOf(inner)
+          if Functions(fn) && !accepts(fn, k) then
+            errors += TemplateError(at, s":$fn does not apply to ${describe(k)}")
+          kindAfter(fn, k)
+
+      parsed.message.declarations.foreach:
+        case InputDeclaration(name, expr, at) =>
+          val base = args.get(name) match
+            case Some(k) =>
+              used += name
+              k
+            case None    =>
+              errors +=
+                TemplateError(at, s".input names $$$name, which is not an argument of this message")
+              ArgKind.Unknown
+          scope(name) = expr match
+            case FunctionAnnotation(_, fn, _, fnAt) =>
+              if Functions(fn) && !accepts(fn, base) then
+                errors += TemplateError(fnAt, s":$fn does not apply to ${describe(base)}")
+              kindAfter(fn, base)
+            case _                                  => base
+        case LocalDeclaration(name, expr, at) =>
+          val k = kindOf(expr)
+          if scope.contains(name) then errors += TemplateError(at, s"$$$name is declared twice")
+          scope(name) = k
+
+      val rest = parsed.message.body.fold(
+        p => patternExpressions(p),
+        m => m.selectors ++ m.cases.flatMap(c => patternExpressions(c.pattern)),
+      )
+      rest.foreach(kindOf)
+      (errors.toList.distinct.take(MaxErrors), args.keys.filterNot(used).toList.sorted)
+    end if
+  end check
+
+  private def patternExpressions(p: Pattern): List[Expression] = p match
+    case Text(_)             => Nil
+    case Placeholder(e)      => List(e)
+    case PatternSequence(ps) => ps.flatMap(patternExpressions)
+
+  // ---------------------------------------------------------------------------------------------
+  // Evaluation
+  // ---------------------------------------------------------------------------------------------
+
+  final private[i18n] case class Context(
     variables: Map[String, Any] = Map.empty,
     locale: String = "en")
 
-  def format(
-    template: String,
-    args: Map[String, Any] = Map.empty,
-    locale: String = "en",
-  ): String =
-    val parser  = new Parser(template)
-    val message = parser.parse()
-    val context = Context(args, locale)
-    evaluate(message, context)
+  // None when evaluating threw, which no input should make it do; the caller decides what to show.
+  private[i18n] def tryFormat(
+    message: Message,
+    args: Map[String, Any],
+    locale: String,
+  ): Option[String] =
+    try Some(evaluate(message, Context(args, locale)))
+    catch case NonFatal(_) => None
 
   private def evaluate(message: Message, initialContext: Context): String =
-    // Process declarations to build context
-    val context = message.declarations.foldLeft(initialContext) { (ctx, decl) =>
-      decl match
-        case InputDeclaration(name, expr) =>
-          val value = evaluateExpression(expr, ctx)
-          ctx.copy(variables = ctx.variables + (name -> value))
-        case LocalDeclaration(name, expr) =>
-          val value = evaluateExpression(expr, ctx)
-          ctx.copy(variables = ctx.variables + (name -> value))
-    }
-
-    // Evaluate body
+    val context = message.declarations.foldLeft(initialContext): (ctx, decl) =>
+      ctx.copy(variables = ctx.variables + (decl.name -> evaluateExpression(decl.expr, ctx)))
     message.body match
       case Left(pattern)    => evaluatePattern(pattern, context)
       case Right(matchStmt) => evaluateMatch(matchStmt, context)
 
-  end evaluate
-
   private def evaluateExpression(expr: Expression, context: Context): Any =
     expr match
-      case Variable(name) => context.variables.getOrElse(name, s"$$${name}")
-      case Literal(value) => value
-      case FunctionAnnotation(innerExpr, function, options) =>
+      case Variable(name, _) => context.variables.getOrElse(name, s"$$${name}")
+      case Literal(value)    => value
+      case FunctionAnnotation(innerExpr, function, options, _) =>
         val value = evaluateExpression(innerExpr, context)
         applyFunction(value, function, options, context)
 
@@ -463,9 +646,26 @@ object MessageFormat2:
   ): Any =
     function match
       case "number"   => formatNumber(value, options, context.locale)
-      case "datetime" => formatDateTime(value, options, context.locale)
+      case "integer"  => formatInteger(value)
+      case "datetime" => PlatformDateTimeFormatter.formatDateTime(value, options, context.locale)
+      case "date"     =>
+        val date = value match
+          case ldt: LocalDateTime => ldt.toLocalDate
+          case other              => other
+        date match
+          case d: LocalDate =>
+            PlatformDateTimeFormatter.formatDateTime(d, options - "timeStyle", context.locale)
+          case other        => other.toString
+      case "time"     =>
+        val time = value match
+          case ldt: LocalDateTime => ldt.toLocalTime
+          case other              => other
+        time match
+          case t: LocalTime =>
+            PlatformDateTimeFormatter.formatDateTime(t, options - "dateStyle", context.locale)
+          case other        => other.toString
       case "plural"   => PluralSelector(value, context.locale)
-      case "select"   => value
+      case "string"   => show(value, context.locale)
       case _          => value
 
   private def formatNumber(
@@ -478,49 +678,37 @@ object MessageFormat2:
         PlatformNumberFormatter.formatNumber(num, options.get("style"), locale)
       case _                       => value.toString
 
-  private def formatDateTime(
-    value: Any,
-    options: Map[String, String],
-    locale: String,
-  ): String =
-    PlatformDateTimeFormatter.formatDateTime(value, options, locale)
+  // Rounded half away from zero, digits only; a value that is no number shows as it is.
+  private def formatInteger(value: Any): String =
+    value.toString.toDoubleOption match
+      case Some(d) if !d.isNaN && !d.isInfinite => math.round(d).toString
+      case _                                    => value.toString
 
-  case class PluralSelector(value: Any, locale: String)
+  final private[i18n] case class PluralSelector(value: Any, locale: String)
+
+  // How a value shows in a pattern: a language by its name in the reader's language.
+  private def show(value: Any, locale: String): String = value match
+    case PluralSelector(v, _) => v.toString
+    case l: Language          => Language.nameIn(l, locale)
+    case other                => other.toString
 
   private def evaluatePattern(pattern: Pattern, context: Context): String =
     pattern match
       case Text(value)               => value
-      case Placeholder(expr)         =>
-        val value = evaluateExpression(expr, context)
-        value match
-          case PluralSelector(v, _) => v.toString
-          case other                => other.toString
-      case PatternSequence(patterns) =>
-        patterns.map(p => evaluatePattern(p, context)).mkString
+      case Placeholder(expr)         => show(evaluateExpression(expr, context), context.locale)
+      case PatternSequence(patterns) => patterns.map(p => evaluatePattern(p, context)).mkString
 
   private def evaluateMatch(matchStmt: MatchStatement, context: Context): String =
-    // Evaluate selectors
     val selectorValues = matchStmt.selectors.map(s => evaluateExpression(s, context))
-
-    // Find matching case
-    val matchedCase = matchStmt.cases.find { mcase =>
-      // Check if all keys match their corresponding selector values
-      if mcase.keys.size == selectorValues.size then
-        mcase.keys.zip(selectorValues).forall {
-          case (key, PluralSelector(value, locale)) =>
-            matchesPluralKey(value, key, locale)
-          case (key, value)                         =>
-            key == value.toString || key == "*"
-        }
-      else
-        false
-    }
-
+    val matchedCase    = matchStmt.cases.find: mcase =>
+      mcase.keys.size == selectorValues.size &&
+      mcase.keys.zip(selectorValues).forall:
+        case (key, PluralSelector(value, locale)) => matchesPluralKey(value, key, locale)
+        case (key, l: Language)                   => key == "*" || key == l.tag
+        case (key, value)                         => key == value.toString || key == "*"
     matchedCase match
       case Some(mcase) => evaluatePattern(mcase.pattern, context)
       case None        => "[no match]"
-
-  end evaluateMatch
 
   private def matchesPluralKey(
     value: Any,
@@ -530,7 +718,6 @@ object MessageFormat2:
     Try(value.toString.toDouble.toInt) match
       case scala.util.Success(count) =>
         key match
-          // Exact numeric matches (work for all locales)
           case "=0"                   => count == 0
           case "=1"                   => count == 1
           case "0"                    => count == 0
@@ -539,16 +726,18 @@ object MessageFormat2:
           // A key that is not a number in Int range (`=abc`, `99999999999`) matches no count.
           case s if s.startsWith("=") => s.drop(1).toIntOption.contains(count)
           case s if s.matches("\\d+") => s.toIntOption.contains(count)
-
-          // Plural category matching (locale-specific)
-          case "one" =>
-            locale.takeWhile(_ != '-').toLowerCase match
+          case "one"                  =>
+            locale.takeWhile(_ != '-').toLowerCase(java.util.Locale.ROOT) match
               case "fr" => count == 0 || count == 1 // French (any region): one = 0 or 1
               case _    => count == 1               // English/Dutch: one = 1
-
-          case "other" => true // "other" matches everything
-          case "*"     => true // wildcard matches everything
-          case _       => false
+          case "other"                => true
+          case "*"                    => true
+          case _                      => false
       case _                         => key == "other" || key == "*"
 
 end MessageFormat2
+
+/** The kind of value an argument gives a template, which decides the functions that apply to it. */
+private[i18n] enum ArgKind:
+
+  case Text, Number, Date, DateTime, Time, Unknown
