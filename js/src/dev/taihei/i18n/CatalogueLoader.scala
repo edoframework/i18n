@@ -72,12 +72,19 @@ object CatalogueLoader:
           problem(s"cannot fetch ${Printable(url)}: ${Printable(String.valueOf(e.getMessage))}")
   end load
 
+  // A cancellation's promise may reject; nothing waits for it, so it is caught here.
+  private def quietly(promise: js.Dynamic): Unit =
+    if !js.isUndefined(promise) && promise != null && !js.isUndefined(promise.selectDynamic("catch"))
+    then
+      promise.applyDynamic("catch")((_: js.Any) => ())
+      ()
+
   // Lets go of a body that will not be read, so that its connection can close.
   private def cancel(response: js.Dynamic): Unit =
     try
       val body = response.body
       if !js.isUndefined(body) && body != null then
-        body.cancel()
+        quietly(body.cancel())
         ()
     catch case NonFatal(_) => ()
 
@@ -107,7 +114,7 @@ object CatalogueLoader:
             else
               total += chunk.value.length.asInstanceOf[Double]
               if total > MaxBytes then
-                reader.cancel()
+                quietly(reader.cancel())
                 Future.failed(new IllegalStateException(s"larger than $MaxBytes bytes"))
               else
                 out ++=
