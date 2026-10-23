@@ -41,9 +41,9 @@ object release extends Module {
     if (exactTag && clean) version else s"$version-SNAPSHOT"
   }
 
-  // The first release under dev.taihei. Older tags are genius-i18n and edo-i18n, under other
-  // coordinates, so there is nothing on Central to compare them with.
-  val firstRelease = "4.0.0"
+  // The first release as dev.taihei::taihei-tsuji. Older tags are genius-i18n, edo-i18n and
+  // taihei-i18n, other artifacts, so there is nothing of this one on Central to compare them with.
+  val firstRelease = "5.0.0"
 
   // The first release of the major line main is on. MiMa compares only within a major line: a
   // major may break, so a release of the previous major is no baseline for it. Raise this when

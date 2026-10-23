@@ -152,6 +152,9 @@ release-preflight:
 # nothing public: make release-abort, fix the cause, retry the same version.
 # ---------------------------------------------------------------------------
 
+# A patch or minor release is checked by MiMa against the current release; a check without a
+# baseline passes, so release-prepare refuses one whose baseline is anything else (a missing tag,
+# a MIMA_BASELINE in the environment). A major runs without one.
 # Nothing is staged on the release path: the clean-tree check counts staged changes as dirty, and
 # whatever validate rewrote is for a human to review and commit, never to fold into the release.
 # The release notes come from a claude call with no tools and none of the user's settings: it
@@ -186,7 +189,13 @@ release-prepare:
 	echo "[INFO] Cleaning build cache..."; \
 	./mill clean; \
 	echo "[INFO] Running validation..."; \
-	if [ "$(TYPE)" = "major" ]; then export MIMA_BASELINE=none; fi; \
+	if [ "$(TYPE)" = "major" ]; then export MIMA_BASELINE=none; else \
+		BASELINE=$$(./mill show release.mimaBaseline | tr -d '\n "'); \
+		if [ "$$BASELINE" != "$$CURRENT" ]; then \
+			echo "[ERROR] MiMa baseline is '$$BASELINE', not v$$CURRENT: a $(TYPE) release must be checked against it"; exit 1; \
+		fi; \
+		echo "[OK] MiMa baseline: $$BASELINE"; \
+	fi; \
 	$(MAKE) validate; \
 	if [ -n "$$(git status --porcelain | grep -v '^??')" ]; then \
 		echo "[ERROR] validate changed files: review and commit the reformatting first, then run release-prepare again."; \
