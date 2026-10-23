@@ -8,10 +8,11 @@ import scala.scalajs.js.annotation.JSGlobal
 
 @js.native
 @JSGlobal("Intl.DateTimeFormat")
-class DateTimeFormat(@unused locale: String, @unused options: js.Dictionary[Any]) extends js.Object:
+private[i18n] class DateTimeFormat(@unused locale: String, @unused options: js.Dictionary[Any])
+  extends js.Object:
   def format(date: js.Date): String = js.native
 
-object PlatformDateTimeFormatter:
+private[i18n] object PlatformDateTimeFormatter:
 
   def formatDateTime(
     value: Any,

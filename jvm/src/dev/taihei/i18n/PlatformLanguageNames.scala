@@ -2,7 +2,7 @@ package dev.taihei.i18n
 
 import java.util.Locale
 
-object PlatformLanguageNames:
+private[i18n] object PlatformLanguageNames:
 
   /**
    * The name of the language `tag` in the language `in`, from the JDK's locale data, or `None`

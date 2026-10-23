@@ -6,10 +6,11 @@ import scala.scalajs.js.annotation.JSGlobal
 
 @js.native
 @JSGlobal("Intl.NumberFormat")
-class NumberFormat(@unused locale: String, @unused options: js.Dictionary[Any]) extends js.Object:
+private[i18n] class NumberFormat(@unused locale: String, @unused options: js.Dictionary[Any])
+  extends js.Object:
   def format(value: Double): String = js.native
 
-object PlatformNumberFormatter:
+private[i18n] object PlatformNumberFormatter:
 
   def formatNumber(
     value: Double,

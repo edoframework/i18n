@@ -2,7 +2,7 @@ package dev.taihei.i18n
 
 import java.util.Locale
 
-object PlatformLocales:
+private[i18n] object PlatformLocales:
 
   /**
    * The JDK locale a formatter uses for a language tag. A bare `en`, `nl` or `fr` keeps the

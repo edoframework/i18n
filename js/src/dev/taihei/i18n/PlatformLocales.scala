@@ -3,7 +3,7 @@ package dev.taihei.i18n
 import scala.scalajs.js
 import scala.util.Try
 
-object PlatformLocales:
+private[i18n] object PlatformLocales:
 
   /**
    * The `Intl` locale a formatter uses for a language tag. A bare `en`, `nl` or `fr` keeps the

@@ -7,11 +7,13 @@ import scala.util.Try
 
 @js.native
 @JSGlobal("Intl.DisplayNames")
-class DisplayNames(@unused locales: js.Array[String], @unused options: js.Dictionary[Any])
+private[i18n] class DisplayNames(
+  @unused locales: js.Array[String],
+  @unused options: js.Dictionary[Any])
   extends js.Object:
   def of(code: String): js.UndefOr[String] = js.native
 
-object PlatformLanguageNames:
+private[i18n] object PlatformLanguageNames:
 
   /**
    * The name of the language `tag` in the language `in`, from `Intl.DisplayNames`, or `None`

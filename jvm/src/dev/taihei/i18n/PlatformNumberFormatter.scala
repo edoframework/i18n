@@ -3,7 +3,7 @@ package dev.taihei.i18n
 import java.text.NumberFormat
 import java.util.Locale
 
-object PlatformNumberFormatter:
+private[i18n] object PlatformNumberFormatter:
 
   def formatNumber(
     value: Double,

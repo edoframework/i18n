@@ -3,7 +3,7 @@ package dev.taihei.i18n
 import java.time.{LocalDate, LocalDateTime, LocalTime}
 import java.time.format.{DateTimeFormatter, FormatStyle}
 
-object PlatformDateTimeFormatter:
+private[i18n] object PlatformDateTimeFormatter:
 
   def formatDateTime(
     value: Any,
