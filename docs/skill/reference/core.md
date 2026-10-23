@@ -125,5 +125,8 @@ given MessageArg[OrderId] = MessageArg.as[OrderId, String](_.value, s => Right(O
   reads as its `text` (shown as is, re-encoded unchanged), and is an error without one. A missing
   argument is an error unless it is an `Option`. The 4.x shape reads as a legacy message.
 - Limits: 8 levels of nested messages, 10000 list elements.
-- Rules: a key is a contract; adding an argument means a new key unless it is an `Option`;
-  removing or retyping one means a new key; the envelope is format 1 of 5.x.
+- Rules on the wire: a key is a contract; adding an argument means a new key unless it is an
+  `Option`; removing or retyping one means a new key; the envelope is format 1 of 5.x.
+- Rule in Scala, for a family a library publishes: its definitions' arguments are API. Adding one
+  (even an `Option`), removing, renaming or retyping one breaks code compiled against the older
+  version at run time, which MiMa cannot see. Within a major, add a new val with a new key.

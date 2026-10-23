@@ -64,8 +64,9 @@ Orders.shipped(count = 3, on = today).localize(Dutch)  // falls back to English,
   `lazy val` (it joins `definitions` only when first used, unseen by verify, the export and
   JSON decoding until then). The key is the val's name:
   renaming the val changes the key, which is a wire contract.
-- A key is a contract: never reuse it for other arguments. Adding an argument needs a new key
-  unless it is an `Option`.
+- A key is a contract: never reuse it for other arguments. On the wire, adding an argument needs
+  a new key unless it is an `Option`. In a family a library publishes, any change to a
+  definition's arguments (an `Option` too) is a breaking change: add a new val instead.
 - Decoding a `Message` from JSON needs a `given Catalogues` that knows the family (`Catalogues(Seq(...))`
   or `register`). An unknown key reads as its `text`.
 - Inline translations are code and end up in the Scala.js bundle; a browser app with many

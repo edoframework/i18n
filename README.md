@@ -290,7 +290,7 @@ language:
 - One message, with its nested messages, list elements and fallbacks, produces at most four
   million characters; past that it shows its own template.
 
-Versioning rules for keys:
+Versioning rules for keys, on the wire:
 
 - A key is a contract. Never reuse a key for a different set of arguments.
 - Adding an argument means a new key, unless the new argument is an `Option`: a reader that does
@@ -298,6 +298,12 @@ Versioning rules for keys:
 - Removing or retyping an argument means a new key.
 - The envelope above is format 1 of taihei-i18n 5.x. A change to it would be a major release.
   There is no version field per message.
+
+And in Scala, for a family that a library publishes: a definition's arguments are its API. Code
+compiled against an older version calls it with the arguments it knew, which the compiler of the
+library cannot check, so it fails or goes wrong when it runs. Adding an argument (even an
+`Option`), removing, renaming or retyping one is a breaking change of the library. Within a major
+version, add a new val, with a new key, instead.
 
 ## ICU MessageFormat 2.0
 
