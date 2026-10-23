@@ -430,6 +430,34 @@ object MessageFormat2Spec extends ZIOSpecDefault:
         assertTrue(MessageFormat2.format(template, Map("count" -> n)).trim == s"case $n")
       },
     ),
+    suite("Length of the formatted text")(
+      test("a text of exactly the limit is formatted") {
+        val arg    = "a" * 100000
+        val result = MessageFormat2.format("{$v}" * 10, Map("v" -> arg))
+        assertTrue(MessageFormat2.MaxOutputLength == 1000000, result == arg * 10)
+      },
+      test("a text one character past the limit gives the template") {
+        val template = "{$v}" * 10 + "!"
+        val result   = MessageFormat2.format(template, Map("v" -> "a" * 100000))
+        assertTrue(result == template)
+      },
+      test("a repeated placeholder that would make two million characters gives the template") {
+        val template = "{$v}" * 20
+        assertTrue(MessageFormat2.format(template, Map("v" -> "a" * 100000)) == template)
+      },
+      test("a lone placeholder longer than the limit gives the template") {
+        val template = "{$v}"
+        assertTrue(MessageFormat2.format(template, Map("v" -> "a" * 1000001)) == template)
+      },
+      test("a match variant is held to the same limit") {
+        val template = ".match {$n}\nwhen * {" + "{$v}" * 20 + "}"
+        assertTrue(MessageFormat2.format(template, Map("n" -> 1, "v" -> "a" * 100000)) == template)
+      },
+      test("thousands of placeholders with long values stop at the limit") {
+        val template = "{$0}" * 16384
+        assertTrue(MessageFormat2.format(template, Map("0" -> "a" * 65536)) == template)
+      },
+    ),
   )
 
 end MessageFormat2Spec

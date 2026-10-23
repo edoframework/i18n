@@ -418,6 +418,12 @@ object MessageFormat2:
     variables: Map[String, Any] = Map.empty,
     locale: String = "en")
 
+  /**
+   * The template formatted with `args` in the locale given by the BCP 47 tag `locale`. A variable
+   * without a value shows as `$name`. The text one template formats to is at most a million
+   * characters (`MaxOutputLength`); a template whose text would be longer comes back as it was
+   * written.
+   */
   def format(
     template: String,
     args: Map[String, Any] = Map.empty,
@@ -426,7 +432,20 @@ object MessageFormat2:
     val parser  = new Parser(template)
     val message = parser.parse()
     val context = Context(args, locale)
-    evaluate(message, context)
+    // A sequence stops as soon as it would pass the limit; a lone placeholder is checked here.
+    try
+      val text = evaluate(message, context)
+      if text.length > MaxOutputLength then template else text
+    catch case _: TooLong => template
+
+  // A template can repeat a placeholder, and its arguments may come with the message from
+  // outside the program: the text of one template stops here rather than grow with the product
+  // of the two. A 4.x message formats exactly one template, so this also bounds a message.
+  private[i18n] val MaxOutputLength = 1000000
+
+  // Thrown past MaxOutputLength and caught in format; it carries no stack trace, being control
+  // flow rather than an error.
+  final private class TooLong extends RuntimeException("formatted text too long", null, false, false)
 
   private def evaluate(message: Message, initialContext: Context): String =
     // Process declarations to build context
@@ -496,7 +515,13 @@ object MessageFormat2:
           case PluralSelector(v, _) => v.toString
           case other                => other.toString
       case PatternSequence(patterns) =>
-        patterns.map(p => evaluatePattern(p, context)).mkString
+        // Checked before each piece is added, so the text never grows past the limit.
+        val out = new StringBuilder
+        patterns.foreach: p =>
+          val piece = evaluatePattern(p, context)
+          if piece.length > MaxOutputLength - out.length then throw new TooLong
+          out ++= piece
+        out.result()
 
   private def evaluateMatch(matchStmt: MatchStatement, context: Context): String =
     // Evaluate selectors
