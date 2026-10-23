@@ -129,7 +129,7 @@ end Catalogue
  * Something wrong with a catalogue or a translation: what, and where when it is known. Text from
  * the input is escaped and cut short, so a problem can be logged as it is.
  */
-final case class CatalogueProblem(
+final case class CatalogueProblem private[i18n] (
   message: String,
   language: Option[Language] = None,
   key: Option[MessageKey] = None):

@@ -10,7 +10,7 @@ import scala.util.control.NonFatal
  * A problem in a MessageFormat 2.0 template: the offset of the character where it was found, and
  * what is wrong there.
  */
-final case class TemplateError(position: Int, message: String):
+final case class TemplateError private[i18n] (position: Int, message: String):
   override def toString: String = s"at $position: $message"
 
 /**
