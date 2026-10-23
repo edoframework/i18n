@@ -343,6 +343,15 @@ object MessageFamilySpec extends ZIOSpecDefault:
           over == Right("Validation failed: {$errors}"),
         )
       },
+      test("writing such a message back holds all its texts to one budget") {
+        given Catalogues = Catalogues(Seq(Shapes) ++ CoreMessages.families)
+        val leaf    = s"""{"args":["${"A" * 2000}"],"translationTemplates":{"English":"${"{$0}" * 500}"}}"""
+        val wrapped = s"""{"key":"shape.nested","args":{"field":"f","error":$leaf}}"""
+        val outer   =
+          s"""{"key":"taihei.validation.failed","args":{"errors":[${List.fill(2000)(wrapped).mkString(",")}]}}"""
+        val written = outer.fromJson[Message].map(_.toJson)
+        assertTrue(written.exists(_.length < outer.length + 2 * Budget.PerMessage.toInt))
+      },
       test("a 4.x message with too many or too long templates is refused") {
         given Catalogues = Catalogues()
         val many = (1 to 1001).map(i => s""""l$i":"x"""").mkString(",")

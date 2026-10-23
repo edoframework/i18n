@@ -26,7 +26,7 @@ import zio.json.ast.Json
 final class MessageArg[A] private[i18n] (
   private[i18n] val kind: ArgKind,
   private[i18n] val toFormat: (A, Language, Catalogues, Budget) => Any,
-  private[i18n] val encode: A => Json,
+  private[i18n] val encode: (A, Budget) => Json,
   private[i18n] val decode: (Json, MessageArg.Context) => Either[String, A],
   private[i18n] val absent: Option[A] = None)
 
@@ -56,7 +56,7 @@ object MessageArg:
         _,
         _,
       ) => a,
-      encode,
+      (a, _) => encode(a),
       (json, _) => decode(json),
     )
 
@@ -173,7 +173,7 @@ object MessageArg:
         budget,
       ) =>
         catalogues.renderWithin(a, language, budget),
-      a => Displayable.toJsonAst(a),
+      (a, budget) => Displayable.toJsonAst(a, budget),
       (json, context) =>
         if context.depth >= MaxDepth then Left(s"messages nested deeper than $MaxDepth")
         else decodeNested(json, context.copy(depth = context.depth + 1)),
@@ -200,7 +200,7 @@ object MessageArg:
         catalogues,
         budget,
       ) => o.fold("")(a => base.toFormat(a, language, catalogues, budget)),
-      _.fold(Json.Null)(base.encode),
+      (o, budget) => o.fold(Json.Null)(a => base.encode(a, budget)),
       (json, context) =>
         json match
           case Json.Null => Right(None)
@@ -226,7 +226,7 @@ object MessageArg:
           ),
           budget,
         ),
-      as => Json.Arr(as.map(base.encode)*),
+      (as, budget) => Json.Arr(as.map(a => base.encode(a, budget))*),
       (json, context) =>
         json match
           case Json.Arr(elements) if elements.size <= MaxElements =>
@@ -257,7 +257,7 @@ object MessageArg:
         catalogues,
         budget,
       ) => base.toFormat(to(a), language, catalogues, budget),
-      a => base.encode(to(a)),
+      (a, budget) => base.encode(to(a), budget),
       (json, context) => base.decode(json, context).flatMap(from),
       base.absent.flatMap(b => from(b).toOption),
     )

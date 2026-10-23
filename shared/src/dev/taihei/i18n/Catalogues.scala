@@ -349,10 +349,11 @@ object Catalogues:
   // The text of a message in its source language, without any registry: what toString shows and
   // what the JSON encoder writes as "text".
   @nowarn("cat=deprecation")
-  private[i18n] def sourceText(message: Message): String = message.body match
-    case Message.Body.Defined(d, _)       => sourceOnly.render(message, d.family.sourceLanguage)
-    case Message.Body.Unresolved(_, text) => text
-    case Message.Body.Legacy(l)           => l.toString
+  private[i18n] def sourceText(message: Message, budget: Budget = Budget.fresh()): String =
+    message.body match
+      case Message.Body.Defined(d, _) => sourceOnly.render(message, d.family.sourceLanguage, budget)
+      case Message.Body.Unresolved(_, text) => text
+      case Message.Body.Legacy(l)           => l.toString
 
   // Reads no files and keeps no families: it only ever uses the code's own templates.
   private val sourceOnly = new Catalogues(Map.empty, fromResources = false, registers = false)

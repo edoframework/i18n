@@ -24,8 +24,9 @@ abstract class Displayable private[i18n] ():
 object Displayable:
 
   @nowarn("cat=deprecation")
-  private[i18n] def toJsonAst(d: Displayable): Json = d match
-    case m: Message        => Message.toJsonAst(m, withText = true)
+  // One budget for the texts of a whole message tree, nested messages included.
+  private[i18n] def toJsonAst(d: Displayable, budget: Budget = Budget.fresh()): Json = d match
+    case m: Message        => Message.toJsonAst(m, withText = true, budget)
     case t: Text           => Text.toJsonAst(t)
     case l: legacy.Message => summon[JsonEncoder[legacy.Message]].toJsonAST(l).getOrElse(Json.Null)
     case other             => Json.Str(other.toString)
@@ -39,7 +40,7 @@ object Displayable:
       case _           => Left("expected a message or a text as an object")
 
   /** Writes a message, with its source-language text, or a text. */
-  given JsonEncoder[Displayable] = Json.encoder.contramap(toJsonAst)
+  given JsonEncoder[Displayable] = Json.encoder.contramap(d => toJsonAst(d))
 
   /** Reads a message, a text or a 4.x message; a message's key is looked up in `catalogues`. */
   given (
@@ -149,18 +150,22 @@ object Message:
   private[i18n] val LegacyKey: MessageKey = MessageKey.trusted("legacy")
 
   @nowarn("cat=deprecation")
-  private[i18n] def toJsonAst(m: Message, withText: Boolean): Json = m.body match
+  private[i18n] def toJsonAst(
+    m: Message,
+    withText: Boolean,
+    budget: Budget = Budget.fresh(),
+  ): Json = m.body match
     case Body.Defined(definition, args) =>
       val fields = definition.arguments.zip(args).flatMap:
         case ((name, arg), value) =>
-          arg.encode(value) match
+          arg.encode(value, budget) match
             case Json.Null => None
             case json      => Some(name -> json)
       Json.Obj(
         Chunk.fromIterable(
           List("key" -> Json.Str(m.key.value)) ++
           Option.when(fields.nonEmpty)("args" -> Json.Obj(Chunk.fromIterable(fields))) ++
-          Option.when(withText)("text" -> Json.Str(m.toString))
+          Option.when(withText)("text" -> Json.Str(Catalogues.sourceText(m, budget)))
         )
       )
     case Body.Unresolved(args, text)    =>
