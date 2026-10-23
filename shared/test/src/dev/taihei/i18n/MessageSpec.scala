@@ -443,6 +443,61 @@ object MessageSpec extends ZIOSpecDefault:
         )
       },
     ),
+    suite("Reading a message from JSON")(
+      test("a message at every bound reads and writes back") {
+        val long      = "x" * 65536
+        val templates = (1 until 1000).map(i => Language(f"en-x-t$i%04d") -> s"Hello $i").toMap +
+          (Language.English -> long)
+        val named     = (1 until 500).map(i => s"n$i" -> "v").toMap + (long -> long)
+        val msg       = Message(List.fill(500)(long), named, templates)
+        assertTrue(
+          msg.translationTemplates.size == 1000,
+          msg.args.size + msg.namedArgs.size == 1000,
+          msg.toJson.fromJson[Message] == Right(msg),
+        )
+      },
+      test("more than 1000 templates are refused") {
+        val templates = (0 to 1000).map(i => Language(f"en-x-t$i%04d") -> "x").toMap
+        val result    = Message(Nil, Map.empty, templates).toJson.fromJson[Message]
+        assertTrue(templates.size == 1001, result.left.exists(_.contains("1000 templates")))
+      },
+      test("a template longer than 65536 characters is refused") {
+        val ok  = Message.of("x" * 65536).toJson.fromJson[Message]
+        val bad = Message.of("x" * 65537).toJson.fromJson[Message]
+        assertTrue(ok.isRight, bad.left.exists(_.contains("template is longer")))
+      },
+      test("more than 1000 arguments, positional and named together, are refused") {
+        val positional = Message(List.fill(1001)("a"), Map.empty, Map(Language.English -> "x"))
+        val mixed      = Message(
+          List.fill(600)("a"),
+          (0 until 401).map(i => s"n$i" -> "v").toMap,
+          Map(Language.English -> "x"),
+        )
+        assertTrue(
+          positional.toJson.fromJson[Message].left.exists(_.contains("1000 arguments")),
+          mixed.toJson.fromJson[Message].left.exists(_.contains("1000 arguments")),
+        )
+      },
+      test("an argument longer than 65536 characters is refused") {
+        val positional = Message(List("a" * 65537), Map.empty, Map(Language.English -> "x"))
+        val named      = Message(Nil, Map("v" -> "a" * 65537), Map(Language.English -> "x"))
+        assertTrue(
+          positional.toJson.fromJson[Message].left.exists(_.contains("argument is longer")),
+          named.toJson.fromJson[Message].left.exists(_.contains("argument is longer")),
+        )
+      },
+      test("an argument name longer than 65536 characters is refused") {
+        val msg = Message(Nil, Map("n" * 65537 -> "v"), Map(Language.English -> "x"))
+        assertTrue(msg.toJson.fromJson[Message].left.exists(_.contains("argument name is longer")))
+      },
+      test("the largest message that reads shows its template instead of a text past the limit") {
+        val template = "{$0}" * 16384
+        val json     =
+          s"""{"args":["${"A" * 65536}"],"namedArgs":{},"translationTemplates":{"en":"$template"}}"""
+        val shown    = json.fromJson[Message].map(_.translate(Language.English))
+        assertTrue(template.length == 65536, shown == Right(template))
+      },
+    ),
   )
 
 end MessageSpec

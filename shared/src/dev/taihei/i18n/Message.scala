@@ -42,8 +42,41 @@ case class Message(
 end Message
 
 object Message:
-  // Make the codec available
-  given JsonCodec[Message] = DeriveJsonCodec.gen[Message]
+
+  /**
+   * Writes and reads a message as `{"args": [...], "namedArgs": {...}, "translationTemplates":
+   * {...}}`. A message read from JSON holds at most 1000 templates and 1000 arguments (positional
+   * and named together), and no template, argument or argument name longer than 65536
+   * characters; a larger one is a decoding error.
+   */
+  given JsonCodec[Message] =
+    val derived = DeriveJsonCodec.gen[Message]
+    JsonCodec(derived.encoder, derived.decoder.mapOrFail(withinBounds))
+
+  // JSON is where a message comes from outside the program. These bounds keep what reading it
+  // and formatting it cost in proportion to what a real message needs.
+  private val MaxTemplates    = 1000
+  private val MaxArgs         = 1000
+  private val MaxStringLength = 65536
+
+  private def tooLong(s: String): Boolean = s.length > MaxStringLength
+
+  private def argTooLong(arg: MessageArg): Boolean = arg match
+    case s: String => tooLong(s)
+    case _         => false
+
+  private def withinBounds(m: Message): Either[String, Message] =
+    if m.translationTemplates.size > MaxTemplates then
+      Left(s"a message holds more than $MaxTemplates templates")
+    else if m.translationTemplates.values.exists(tooLong) then
+      Left(s"a template is longer than $MaxStringLength characters")
+    else if m.args.size + m.namedArgs.size > MaxArgs then
+      Left(s"a message holds more than $MaxArgs arguments")
+    else if m.args.exists(argTooLong) || m.namedArgs.values.exists(argTooLong) then
+      Left(s"an argument is longer than $MaxStringLength characters")
+    else if m.namedArgs.keys.exists(tooLong) then
+      Left(s"an argument name is longer than $MaxStringLength characters")
+    else Right(m)
 
   given JsonEncoder[MessageArg] = JsonEncoder[String].contramap(_.toString)
   given JsonDecoder[MessageArg] = JsonDecoder[String].map(identity)
