@@ -45,8 +45,13 @@ object release extends Module {
   // coordinates, so there is nothing on Central to compare them with.
   val firstRelease = "4.0.0"
 
+  // The first release of the major line main is on. MiMa compares only within a major line: a
+  // major may break, so a release of the previous major is no baseline for it. Raise this when
+  // work on the next major starts on main; release-prepare TYPE=major still sets none.
+  val majorLine = "5.0.0"
+
   // The release MiMa compares with: the newest v-tag reachable from HEAD and not on HEAD itself,
-  // none before firstRelease. On a tagged release commit that is the release before it: HEAD's
+  // none before firstRelease or majorLine. On a tagged release commit that is the release before it: HEAD's
   // own tag would compare the release with itself, and fails in CI until Central has synced it.
   // MIMA_BASELINE overrides it: `none` for a major, which may break (release-prepare TYPE=major
   // sets it), or a version.
@@ -64,6 +69,7 @@ object release extends Module {
         Option
           .when(tag.exitCode == 0)(tag.out.trim().stripPrefix("v"))
           .filter(v => Ordering.Implicits.seqOrdering[Seq, Int].gteq(numbers(v), numbers(firstRelease)))
+          .filter(v => Ordering.Implicits.seqOrdering[Seq, Int].gteq(numbers(v), numbers(majorLine)))
     }
   }
 }
