@@ -2,7 +2,11 @@ package dev.taihei.i18n
 
 import java.util.Locale
 
+import scala.annotation.nowarn
+
 import zio.json.*
+
+import dev.taihei.i18n.legacy.Message
 
 /**
  * A language, identified by its canonical BCP 47 tag (`en`, `nl-BE`, `de`, `zh-Hant-TW`).
@@ -15,6 +19,7 @@ import zio.json.*
  * Equality and hash are by tag, so `Language("en") == English` and a `Map[Language, _]` built
  * from either finds the other.
  */
+@nowarn("cat=deprecation")
 final class Language private (val tag: String) extends Serializable:
 
   /**
@@ -59,6 +64,7 @@ final class Language private (val tag: String) extends Serializable:
 
 end Language
 
+@nowarn("cat=deprecation")
 object Language:
 
   val English: Language = new Language("en")

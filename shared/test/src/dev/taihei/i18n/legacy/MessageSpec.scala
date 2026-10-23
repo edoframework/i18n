@@ -1,10 +1,16 @@
-package dev.taihei.i18n
+package dev.taihei.i18n.legacy
 
 import java.time.LocalDate
+
+import scala.annotation.nowarn
 
 import zio.json.*
 import zio.test.*
 
+import dev.taihei.i18n.{CoreMessages, Language}
+
+// The 4.x Message, kept as legacy.Message until 6.0.0, behaves as it did in 4.x.
+@nowarn("cat=deprecation")
 object MessageSpec extends ZIOSpecDefault:
 
   def spec = suite("MessageSpec")(

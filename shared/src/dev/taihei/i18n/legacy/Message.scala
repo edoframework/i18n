@@ -1,14 +1,27 @@
-package dev.taihei.i18n
+package dev.taihei.i18n.legacy
 
 import java.time.{LocalDate, LocalDateTime, LocalTime}
 
 import zio.json.*
 
+import dev.taihei.i18n.{Language, MessageFormat2}
 import dev.taihei.i18n.Language.*
 
+/** The argument values a 4.x message takes. */
+@deprecated("Use the typed arguments of a MessageFamily; legacy is removed in 6.0.0", "5.0.0")
 type MessageArg = String | Int | Long | Double | Float | Boolean | LocalDate | LocalDateTime |
   LocalTime
 
+/**
+ * The message of taihei-i18n 4.x, unchanged: arguments and every translation in one value, with
+ * the 4.x JSON codec. It stays in 5.x so that moving to 5.0.0 is a change of imports
+ * (`import dev.taihei.i18n.legacy.Message`); define new messages in a `MessageFamily`. Removed in
+ * 6.0.0.
+ */
+@deprecated(
+  "Use a MessageFamily: typed messages with per-language catalogues; legacy is removed in 6.0.0",
+  "5.0.0",
+)
 case class Message(
   args: List[MessageArg],
   namedArgs: Map[String, MessageArg] = Map.empty,
@@ -41,6 +54,10 @@ case class Message(
 
 end Message
 
+@deprecated(
+  "Use a MessageFamily: typed messages with per-language catalogues; legacy is removed in 6.0.0",
+  "5.0.0",
+)
 object Message:
   // Make the codec available
   given JsonCodec[Message] = DeriveJsonCodec.gen[Message]

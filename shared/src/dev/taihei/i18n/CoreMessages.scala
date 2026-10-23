@@ -2,8 +2,12 @@ package dev.taihei.i18n
 
 import java.time.LocalDate
 
-import dev.taihei.i18n.Language.*
+import scala.annotation.nowarn
 
+import dev.taihei.i18n.Language.*
+import dev.taihei.i18n.legacy.Message
+
+@nowarn("cat=deprecation")
 object CoreMessages:
 
   object General:

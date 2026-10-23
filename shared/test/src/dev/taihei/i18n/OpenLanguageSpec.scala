@@ -1,11 +1,15 @@
 package dev.taihei.i18n
 
+import scala.annotation.nowarn
+
 import zio.json.*
 import zio.test.*
 
 import dev.taihei.i18n.Language.*
+import dev.taihei.i18n.legacy.Message
 
 /** Any BCP 47 language, beside the three built-ins (since 2.0.0). */
+@nowarn("cat=deprecation")
 object OpenLanguageSpec extends ZIOSpecDefault:
 
   private val German  = Language("de")

@@ -2,13 +2,18 @@ package dev.taihei.i18n
 
 import java.time.{LocalDate, LocalTime}
 
+import scala.annotation.nowarn
+
 import zio.test.*
+
+import dev.taihei.i18n.legacy.Message
 
 /**
  * The formatters on both platforms. The en/nl/fr expectations are the output from before
  * 2.0.0, taken on the JVM and in Node; German is what any language now gets instead of the
  * JVM's default locale or JavaScript's en-US.
  */
+@nowarn("cat=deprecation")
 object PlatformFormatterSpec extends ZIOSpecDefault:
 
   private val date = LocalDate.of(2026, 10, 20)
@@ -64,10 +69,9 @@ object PlatformFormatterSpec extends ZIOSpecDefault:
       val msg = Message.withNamedArgs(Language.English -> "{$d :datetime dateStyle=long}")(
         "d" -> date
       )
-      assertTrue(
-        msg.translate(Language("de")) == "20. Oktober 2026",
-        msg.translate(Language.English) == "October 20, 2026",
-      )
+      val de  = msg.translate(Language("de"))
+      val en  = msg.translate(Language.English)
+      assertTrue(de == "20. Oktober 2026", en == "October 20, 2026")
     },
     test("something that is not a tag formats as English") {
       assertTrue(number("not a tag") == "1,234.50", medium("") == "Oct 20, 2026")
@@ -77,10 +81,8 @@ object PlatformFormatterSpec extends ZIOSpecDefault:
     },
     test("a region reaches the formatter") {
       val msg = Message.withNamedArgs(Language.Dutch -> "{$x :number}")("x" -> 1234.5)
-      assertTrue(
-        number("nl-BE") == "1.234,50",
-        msg.translate(Language("nl-BE")) == "1.234,50",
-      )
+      val be  = msg.translate(Language("nl-BE"))
+      assertTrue(number("nl-BE") == "1.234,50", be == "1.234,50")
     },
   )
 
