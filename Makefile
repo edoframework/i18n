@@ -87,7 +87,7 @@ publish:
 	  if [ -z "$${!V}" ]; then echo "[publish] $$V is not set ($(RELEASE_ENV) or the environment)"; exit 1; fi; \
 	done; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
-	case "$$VERSION" in *-SNAPSHOT) echo "[publish] refused: $$VERSION is not a release (an exact v-tag on a clean tree)"; exit 1;; esac; \
+	case "$$VERSION" in *-SNAPSHOT) echo "[publish] refused: $$VERSION is not a release (an exact v-tag on a clean tree)"; exit 1;; [0-9]*.[0-9]*.[0-9]*) ;; *) echo "[publish] refused: no version from mill: '$$VERSION'"; exit 1;; esac; \
 	echo "[publish] $$VERSION to Maven Central"; \
 	./mill mill.javalib.SonatypeCentralPublishModule/ --bundleName "dev.taihei-taihei-i18n-$$VERSION"
 
@@ -106,7 +106,7 @@ publish-dry-run:
 release-preflight:
 	@set -e; \
 	VERSION=$$(./mill show release.gitVersion | tr -d '"'); \
-	case "$$VERSION" in *-SNAPSHOT) echo "[preflight] $$VERSION is not a release"; exit 1;; esac; \
+	case "$$VERSION" in *-SNAPSHOT) echo "[preflight] $$VERSION is not a release"; exit 1;; [0-9]*.[0-9]*.[0-9]*) ;; *) echo "[preflight] no version from mill: '$$VERSION'"; exit 1;; esac; \
 	FOUND=""; \
 	for P in $(CENTRAL_PATHS); do \
 	  CODE=$$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' "https://repo1.maven.org/maven2/$$P/$$VERSION/" || true); \

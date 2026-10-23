@@ -227,7 +227,11 @@ object Message:
         else Right(())
       case _                         => Left("\"translationTemplates\" is not an object")
 
-  /** Writes a message; with `withText`, the default, also its text in the source language. */
+  /**
+   * Writes a message; with `withText`, the default, also its text in the source language. It
+   * applies to this message: messages nested in its arguments are always written with their text,
+   * so that a reader that knows the outer key but not a nested one can still show it.
+   */
   def encoder(withText: Boolean = true): JsonEncoder[Message] =
     Json.encoder.contramap(toJsonAst(_, withText))
 
