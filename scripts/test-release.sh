@@ -11,8 +11,9 @@ set -uo pipefail
 # make hands its command-line variables to every make below it, through MAKEFLAGS and as
 # environment variables: release-prepare TYPE=... EMBARGO=... runs make validate, and so this
 # script, and the make calls here would inherit them (an EMBARGO=0 from outside answers the very
-# question one check asks). TYPE, EMBARGO and VERSION are the ones the Makefile reads from there.
-unset MAKEFLAGS MFLAGS MAKEOVERRIDES MAKELEVEL TYPE EMBARGO VERSION
+# question one check asks). TYPE, EMBARGO and VERSION are the ones the Makefile reads from there;
+# RELEASE_ENV and COURSIER_CONFIG_DIR it reads from the environment.
+unset MAKEFLAGS MFLAGS MAKEOVERRIDES MAKELEVEL TYPE EMBARGO VERSION RELEASE_ENV COURSIER_CONFIG_DIR
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)

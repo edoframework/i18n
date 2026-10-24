@@ -83,6 +83,10 @@ jobs:
       - name: Release machinery tests
         run: make release-test
 
+      # As release-prepare runs them: its variables must not reach the make calls inside the test.
+      - name: Release machinery tests, with the variables of a release-prepare
+        run: make release-test TYPE=patch EMBARGO=0 VERSION=1.2.3
+
       - name: Check formatting
         run: ./mill __.checkFormat
 
