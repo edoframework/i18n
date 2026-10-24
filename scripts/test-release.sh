@@ -8,6 +8,11 @@
 # repo1.maven.org about version 9.9.9, so the test needs the network. One line per check; exits
 # non-zero when any check fails.
 set -uo pipefail
+# make hands its command-line variables to every make below it, through MAKEFLAGS and as
+# environment variables: release-prepare TYPE=... EMBARGO=... runs make validate, and so this
+# script, and the make calls here would inherit them (an EMBARGO=0 from outside answers the very
+# question one check asks). TYPE, EMBARGO and VERSION are the ones the Makefile reads from there.
+unset MAKEFLAGS MFLAGS MAKEOVERRIDES MAKELEVEL TYPE EMBARGO VERSION
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
