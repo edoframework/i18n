@@ -20,7 +20,7 @@ env:
 
 jobs:
   validate:
-    name: Validate (Format, Lint, Compile, Test, MiMa — JVM & JS)
+    name: Validate (Format, Lint, Compile, Test, MiMa, JVM & JS)
     runs-on: ubuntu-latest
 
     steps:
@@ -127,9 +127,11 @@ jobs:
             ~/.cache/mill
             ~/.ivy2/cache
             ~/.cache/coursier
-          key: mill-${{ runner.os }}-${{ hashFiles('build.mill', '.mill-version') }}
+          # A key of its own: this job fetches no Scala.js or Node artifacts, and a cache it saved
+          # under the validate job's key would leave them out there.
+          key: mill-java17-${{ runner.os }}-${{ hashFiles('build.mill', '.mill-version') }}
           restore-keys: |
-            mill-${{ runner.os }}-
+            mill-java17-${{ runner.os }}-
 
       # Mill runs on its own JVM; TAIHEI_TEST_JAVA_HOME makes the test modules fork on Java 17.
       - name: Run the JVM tests on Java 17

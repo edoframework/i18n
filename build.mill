@@ -194,7 +194,7 @@ trait TaiheiModule extends ScalaModule with ScalafmtModule with ScalafixModule w
     // tests: what is compiled and published does not depend on it.
     def testJavaHome = Task.Input(Task.env.get("TAIHEI_TEST_JAVA_HOME").map(_.trim).filter(_.nonEmpty))
     def javaHome     = Task {
-      testJavaHome().map(home => PathRef(os.Path(home))).orElse(TaiheiModule.this.javaHome())
+      testJavaHome().map(home => PathRef(os.Path(home), quick = true)).orElse(TaiheiModule.this.javaHome())
     }
 
     // The tests of legacy.Message use it on purpose.

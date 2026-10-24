@@ -22,9 +22,9 @@ object PlatformFormatterSpec extends ZIOSpecDefault:
   private def long(tag: String) =
     PlatformDateTimeFormatter.formatDateTime(date, Map("dateStyle" -> "long"), tag)
 
-  // The abbreviated Dutch month in the medium style comes from the platform's CLDR data: Java 17
-  // writes "okt.", later JDKs and Intl write "okt".
-  private val mediumDutch = Set("20 okt 2026", "20 okt. 2026")
+  // The abbreviated Dutch month in the medium style comes from the platform's locale data, which
+  // differs between Java 17 and later JDKs (PlatformExpectations says what each platform writes).
+  private val mediumDutch = PlatformExpectations.mediumDutchDates
 
   private def time(tag: String) =
     PlatformDateTimeFormatter.formatDateTime(LocalTime.of(14, 5), Map("timeStyle" -> "short"), tag)
