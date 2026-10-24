@@ -12,7 +12,8 @@ private[tsuji] trait LanguagePlatform:
   /**
    * The language of a JDK locale: `Language.parse(locale.toLanguageTag)`, except that a locale
    * without a language (`Locale.ROOT`, any tag `und` or `und-…`) is a `Left`. Extensions stay,
-   * as in `parse`: `th_TH_TH` gives `th-TH-u-nu-thai`. The JDK maps its legacy forms first
+   * as in `parse`: `th_TH_TH` gives
+   * `th-TH-u-nu-thai-x-lvariant-th`. The JDK maps its legacy forms first
    * (`iw` gives `he`).
    *
    * {{{

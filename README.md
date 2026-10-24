@@ -142,7 +142,8 @@ Language.fromLocale(Locale.ROOT)                    // Left(...): names no langu
 It is `Language.parse(locale.toLanguageTag)`, except that a locale without a language (`und`) is
 refused. Extensions and the JDK's legacy forms stay as the JDK writes them: `iw` gives `he`, and
 `th_TH_TH` gives `th-TH-u-nu-thai-x-lvariant-th`, which still finds the `th` messages and formats
-with Thai digits. For a bare tag, write `Language.parse(locale.stripExtensions.toLanguageTag)`.
+with Thai digits. `locale.stripExtensions` drops the `-u-` extensions but keeps such a legacy
+variant as `-x-lvariant-`; `Language.fromLocale(locale).map(_.base)` gives the language alone.
 
 On both platforms, `Language.preferred` lists the languages the platform prefers, most preferred
 first: on the JVM the default display locale, in JavaScript `navigator.languages`, else

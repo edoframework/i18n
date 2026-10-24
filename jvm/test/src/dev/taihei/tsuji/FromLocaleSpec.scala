@@ -97,6 +97,7 @@ object FromLocaleSpec extends ZIOSpecDefault:
         assertTrue(nlBE == Vector(Language("nl-BE")), root.isEmpty)
       finally Locale.setDefault(Locale.Category.DISPLAY, saved)
     },
-  )
+    // One test sets the JVM-wide default display locale: the tests do not run side by side.
+  ) @@ TestAspect.sequential
 
 end FromLocaleSpec

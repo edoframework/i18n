@@ -23,9 +23,11 @@ object PlatformPreferredLanguagesSpec extends ZIOSpecDefault:
       val tags = select(Vector("nl-BE", "und", "nl-be", "bad tag", "en"), None, None)
       assertTrue(Language.fromPlatformTags(tags) == Vector(Language("nl-BE"), Language.English))
     },
-    test("the runtime's own tags are read without throwing") {
+    test("the runtime's own tags are read") {
+      // Node always has Intl.DateTimeFormat, so at least the last source gives a tag even where
+      // there is no navigator: an empty result would mean the readers are broken, not absent.
       val tags = PlatformPreferredLanguages.tags
-      assertTrue(tags.forall(_ != null))
+      assertTrue(tags.nonEmpty, Language.parse(tags.head).isRight, Language.preferred.nonEmpty)
     },
   )
 

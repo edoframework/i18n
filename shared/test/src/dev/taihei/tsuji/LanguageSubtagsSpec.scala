@@ -54,6 +54,8 @@ object LanguageSubtagsSpec extends ZIOSpecDefault:
           Language.fromPlatformTags(Vector("und")).isEmpty,
         )
       },
+      // It may be empty here (a JVM whose default is Locale.ROOT); the platform specs show that it
+      // reads something: FromLocaleSpec with a set default, PlatformPreferredLanguagesSpec on Node.
       test("preferred holds no repeat and no und, and does not throw") {
         val preferred = Language.preferred
         assertTrue(
