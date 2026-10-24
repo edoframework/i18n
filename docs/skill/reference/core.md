@@ -20,7 +20,11 @@ Language("en") == English  // equality and hash by tag
 
 - `.tag` / `.isoCode: String` - the canonical tag (`"en"`, `"nl-BE"`, `"zh-Hant-TW"`).
 - `.base: Language` - without script, region or variant (`nl-BE` gives `nl`).
-- `.locale: java.util.Locale` - `Locale.forLanguageTag(tag)`.
+- `.script: Option[String]` / `.region: Option[String]` - the script and region subtags
+  (`zh-Hant-TW`: `Hant`, `TW`; `es-419`: region `419`; `de-1996`, `en-x-us`: no region).
+- `.locale: java.util.Locale` - deprecated since 5.1.0. In 6.0.0 it becomes a JVM-only
+  extension method (no import needed) and is gone on Scala.js; write
+  `java.util.Locale.forLanguageTag(language.tag)`, which works on both platforms in 5.x and 6.x.
 - `.isDefault: Boolean` - true for `English`.
 - `.label: Message` - the language's name as a message of the family
   `CoreMessages.Languages`: hand translations for the built-ins, the platform's names
@@ -35,6 +39,8 @@ Companion:
 | `Language(tag: String): Language` | any valid BCP 47 tag of at most 255 characters, canonicalized; `IllegalArgumentException` otherwise |
 | `Language.parse(tag: String): Either[String, Language]` | the same without throwing |
 | `Language.of(isoCode: String): Language` | the language for a valid tag; `English` only for invalid input |
+| `Language.fromLocale(locale: java.util.Locale): Either[String, Language]` | JVM only: `parse(locale.toLanguageTag)`, `Left` for a locale without a language (`Locale.ROOT`, `und`) |
+| `Language.preferred: Vector[Language]` | the platform's preferred languages, most preferred first (JVM: the default display locale; JS: `navigator.languages`, `navigator.language`, `Intl`); `und`, invalid tags and repeats left out; may be empty |
 | `Language.values: Array[Language]` | the built-ins (`English`, `Dutch`, `French`) |
 | `Language.valueOf(name: String): Language` | a built-in by name (`"Dutch"`) |
 | `Language.defaultLanguage: Language` | `English` |
@@ -44,6 +50,9 @@ Companion:
 A `match` on `Language` is not checked for exhaustiveness: `case English =>` still
 works, but add `case _` for every other language. `ordinal` and `fromOrdinal` are
 gone.
+
+A platform locale type is only ever a factory's argument. In JavaScript an
+`Intl.Locale` is read by its tag: `Language.parse(intlLocale.toString)`.
 
 Codecs (given): `JsonCodec`, `JsonEncoder` and `JsonDecoder[Language]`, and
 `JsonFieldEncoder`/`JsonFieldDecoder` (so `Language` works as a JSON map key). A built-in is written by

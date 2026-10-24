@@ -124,6 +124,44 @@ shipped.localize(Dutch)            // 3 artikels verzonden op 23 oktober 2026
 shipped.localize(Language("de"))   // 3 items shipped on 23. Oktober 2026
 ```
 
+## From the platform locale
+
+A `Language` is a BCP 47 tag on every platform, and its JSON form is that tag. A platform's
+locale type only appears as the argument of a factory, never in a return type or a field.
+
+On the JVM, `Language.fromLocale` reads a `java.util.Locale`:
+
+```scala
+import java.util.Locale
+import dev.taihei.tsuji.Language
+
+Language.fromLocale(Locale.forLanguageTag("nl-BE")) // Right(nl-BE)
+Language.fromLocale(Locale.ROOT)                    // Left(...): names no language
+```
+
+It is `Language.parse(locale.toLanguageTag)`, except that a locale without a language (`und`) is
+refused. Extensions and the JDK's legacy forms stay as the JDK writes them: `iw` gives `he`, and
+`th_TH_TH` gives `th-TH-u-nu-thai-x-lvariant-th`, which still finds the `th` messages and formats
+with Thai digits. For a bare tag, write `Language.parse(locale.stripExtensions.toLanguageTag)`.
+
+On both platforms, `Language.preferred` lists the languages the platform prefers, most preferred
+first: on the JVM the default display locale, in JavaScript `navigator.languages`, else
+`navigator.language`, else the locale of `Intl.DateTimeFormat`. Tags that name no language, are
+not well formed or repeat are left out, so the list may be empty and you choose the fallback:
+
+```scala
+val language = Language.preferred.headOption.getOrElse(Language.defaultLanguage)
+```
+
+In JavaScript an `Intl.Locale` is read by its tag: `Language.parse(intlLocale.toString)`, or
+`Language.parse(intlLocale.baseName)` without its extensions. `language.script` and
+`language.region` give the script and region subtags (`zh-Hant-TW`: `Some("Hant")`,
+`Some("TW")`).
+
+`language.locale` is deprecated since 5.1.0. In 6.0.0 it moves off the shared `Language`: on the
+JVM `language.locale` keeps working as an extension method that needs no import, on Scala.js it
+is gone. `java.util.Locale.forLanguageTag(language.tag)` works in 5.x and 6.x on both platforms.
+
 ## Messages
 
 A **message family** is an object that groups messages under a key prefix and names its
