@@ -22,6 +22,10 @@ object PlatformFormatterSpec extends ZIOSpecDefault:
   private def long(tag: String) =
     PlatformDateTimeFormatter.formatDateTime(date, Map("dateStyle" -> "long"), tag)
 
+  // The abbreviated Dutch month in the medium style comes from the platform's CLDR data: Java 17
+  // writes "okt.", later JDKs and Intl write "okt".
+  private val mediumDutch = Set("20 okt 2026", "20 okt. 2026")
+
   private def time(tag: String) =
     PlatformDateTimeFormatter.formatDateTime(LocalTime.of(14, 5), Map("timeStyle" -> "short"), tag)
 
@@ -39,9 +43,23 @@ object PlatformFormatterSpec extends ZIOSpecDefault:
       assertTrue(
         number("nl") == "1.234,50",
         percent("nl") == "50%",
-        medium("nl") == "20 okt 2026",
+        mediumDutch.contains(medium("nl")),
         long("nl") == "20 oktober 2026",
         time("nl") == "14:05",
+      )
+    },
+    // Language.Dutch is the bare tag nl. On the JVM its locale once came from Locale.of, which
+    // Java 17 lacks: there the first Dutch :number or :date threw NoSuchMethodError. CI runs this
+    // on Java 17 as well as on the newest JDK.
+    test("a Dutch message formats :number, :integer, :date, :time and :datetime") {
+      val template =
+        "{$n :number} {$i :integer} {$d :date dateStyle=long} {$t :time timeStyle=short} {$d :datetime}"
+      val args     = Map("n" -> 1234.5, "i" -> 2.5, "d" -> date, "t" -> LocalTime.of(14, 5))
+      val shown    = MessageFormat2.format(template, args, Language.Dutch.tag)
+      assertTrue(
+        Language.Dutch.tag == "nl",
+        shown.startsWith("1.234,50 3 20 oktober 2026 14:05 "),
+        mediumDutch.contains(shown.stripPrefix("1.234,50 3 20 oktober 2026 14:05 ")),
       )
     },
     test("French is unchanged") {

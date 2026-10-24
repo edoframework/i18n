@@ -37,6 +37,8 @@ receives security fixes for 12 months after the release of Taihei Tsuji 5.0.0.
 
 ## Stack
 
+- JVM: Java 17 or later. The JVM modules are compiled against the Java 17 API
+  (`-java-output-version:17`), and CI runs the tests on Java 17 and on Java 25.
 - Mill 1.3.1
 - Scala 3.9.0 (LTS) · Scala.js 1.22.0
 - ZIO 2.1.27 (`zio-json` 1.1 for codecs, `zio-test`)
@@ -315,7 +317,9 @@ Functions: `{$n :number}` (with `style=percent` or `style=currency`), `{$n :inte
 `:select` as `.match` selectors, `:string`. Declarations: `.input {$n :number}` and
 `.local $x = {$n :number}` (or `.let`). `.match` variants are `when <keys> {pattern}`, and one of
 them must be `when * {...}`. On the JVM a long or full `timeStyle` on a value without a time zone
-formats as medium; Scala.js prints the runtime's zone instead.
+formats as medium; Scala.js prints the runtime's zone instead. Formats come from the platform's
+locale data (the JDK's CLDR version, or `Intl` in the JavaScript runtime), so a detail can differ
+between them: a medium Dutch date is `20 okt. 2026` on Java 17 and `20 okt 2026` on later JDKs.
 
 ## Pre-built messages
 

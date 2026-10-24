@@ -130,10 +130,22 @@ trait TaiheiModule extends ScalaModule with ScalafmtModule with ScalafixModule w
     // The message macro expands in user code: what it calls must be public in the bytecode.
     "-WunstableInlineAccessors",
     "-Wconf:msg=Unstable inline accessor:e",
+    // Java 17 is the JVM floor (Scala 3.9's too). This compiles against the Java 17 API, not the
+    // API of the JDK that runs the build, so a call added in a later Java fails here, on any JDK,
+    // instead of at run time on a user's Java 17.
+    "-java-output-version:17",
   )
 
   trait TaiheiTests extends ScalaTests with ScalafmtModule with ScalafixModule {
     def testFramework = "zio.test.sbt.ZTestFramework"
+
+    // The JDK the tests run on: the module's (Mill's own) unless TAIHEI_TEST_JAVA_HOME names
+    // another. CI runs them once more on Java 17, the oldest Java the library supports. Only the
+    // tests: what is compiled and published does not depend on it.
+    def testJavaHome = Task.Input(Task.env.get("TAIHEI_TEST_JAVA_HOME").map(_.trim).filter(_.nonEmpty))
+    def javaHome     = Task {
+      testJavaHome().map(home => PathRef(os.Path(home))).orElse(TaiheiModule.this.javaHome())
+    }
 
     // The tests of legacy.Message use it on purpose.
     def scalacOptions = Task { super.scalacOptions() ++ LegacyInTests }
