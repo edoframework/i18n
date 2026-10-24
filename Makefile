@@ -116,14 +116,18 @@ publishLocal:
 	fi
 	./mill __.publishLocal
 
-# Signs every artifact and uploads them as one named bundle (the Mill daemon is shut down at the
-# end, so that no process keeps the credentials) to the Central Portal, which
+# Signs every artifact and uploads them as one named bundle to the Central Portal, which
 # validates it and publishes it (Mill's SonatypeCentralPublishModule, AUTOMATIC): one deployment,
 # so that a failure leaves none of the artifacts public. Only a release version: the Central
-# snapshot repository is not enabled for the namespace.
+# snapshot repository is not enabled for the namespace. Mill hands the client's environment to a
+# daemon that is already running, credentials included, and that daemon may have been started
+# before the guard ran (by a stray build file, an IDE, another make): so the daemon is shut down
+# right after the guard, the credentialed run starts a fresh one, and it is shut down again at
+# the end, so that no process keeps the credentials.
 publish:
 	@set -e; \
 	$(STRAY_GUARD); \
+	./mill shutdown >/dev/null 2>&1 || true; \
 	trap './mill shutdown >/dev/null 2>&1 || true' EXIT; \
 	$(MODULE_GUARD); \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
@@ -141,6 +145,7 @@ publish:
 publish-dry-run:
 	@set -e; \
 	$(STRAY_GUARD); \
+	./mill shutdown >/dev/null 2>&1 || true; \
 	trap './mill shutdown >/dev/null 2>&1 || true' EXIT; \
 	$(MODULE_GUARD); \
 	if [ -f "$(RELEASE_ENV)" ]; then . "$(RELEASE_ENV)"; fi; \
@@ -194,6 +199,7 @@ release-prepare:
 	if [ -z "$(TYPE)" ]; then \
 		echo "[ERROR] Usage: make release-prepare TYPE=patch|minor|major"; exit 1; \
 	fi; \
+	$(STRAY_GUARD); \
 	if [ -n "$$(git status --porcelain | grep -v '^??')" ]; then \
 		echo "[ERROR] Uncommitted changes:"; git status --short | grep -v '^??'; exit 1; \
 	fi; \
