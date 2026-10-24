@@ -68,6 +68,20 @@ jobs:
           if [ -n "$filtered" ]; then echo "::error::files with a git filter:"; echo "$filtered"; exit 1; fi
           attrs="$(git ls-files | awk '{ p = tolower($0) } p ~ /(^|\/)\.(gitattributes|lfsconfig|gitmodules)"?$/')"
           if [ -n "$attrs" ]; then echo "::error::tracked .gitattributes, .lfsconfig or .gitmodules:"; echo "$attrs"; exit 1; fi
+          # A release bundle is built on the maintainer's machine, never committed.
+          bundles="$(git ls-files -- .release-bundles .release-embargo .release-state.json)"
+          if [ -n "$bundles" ]; then echo "::error::tracked release bundles or release state:"; echo "$bundles"; exit 1; fi
+
+      # The build resolves from Maven Central only: no build file names another repository, no
+      # published module adds one, and every dev.taihei pin is a version on Central, not one that
+      # waits for the release train on GitHub Packages (ADR 0003). This runner holds no
+      # credentials, which is the proof that the build needs none.
+      - name: Maven Central only (repo-guard)
+        run: make repo-guard
+
+      # The release machinery against a fake registry on localhost: no token, no key, no upload.
+      - name: Release machinery tests
+        run: make release-test
 
       - name: Check formatting
         run: ./mill __.checkFormat

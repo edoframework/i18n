@@ -31,12 +31,22 @@ object V {
 // release itself is the Makefile's (release-prepare / release-finalize).
 // ---------------------------------------------------------------------------
 object release extends Module {
+  private def gitAt(root: os.Path, args: String*) = os.proc("git", args).call(cwd = root, check = false)
+
+  // Not being at an exact tag is the normal case, so this probe's "no tag exactly matches" is kept
+  // out of the log. Every other git error stays visible: a describe that fails for another reason
+  // (a shallow clone, git refusing the repository) must not leave MiMa without a baseline unseen.
+  private def isExactTag(root: os.Path) = os
+    .proc("git", "describe", "--tags", "--exact-match", "--match", "v[0-9]*")
+    .call(cwd = root, check = false, stderr = os.Pipe)
+    .exitCode == 0
+
   def gitVersion = Task.Input {
     val root     = os.Path(sys.env("MILL_WORKSPACE_ROOT"))
-    def git(args: String*) = os.proc("git", args).call(cwd = root, check = false)
+    def git(args: String*) = gitAt(root, args*)
     val tag      = git("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*")
     val version  = if (tag.exitCode == 0) tag.out.trim().stripPrefix("v") else "0.0.0"
-    val exactTag = git("describe", "--tags", "--exact-match", "--match", "v[0-9]*").exitCode == 0
+    val exactTag = isExactTag(root)
     val clean    = git("status", "--porcelain").out.text().linesIterator.forall(_.startsWith("??"))
     if (exactTag && clean) version else s"$version-SNAPSHOT"
   }
@@ -50,26 +60,66 @@ object release extends Module {
   // work on the next major starts on main; release-prepare TYPE=major still sets none.
   val majorLine = "5.0.0"
 
-  // The release MiMa compares with: the newest v-tag reachable from HEAD and not on HEAD itself,
-  // none before firstRelease or majorLine. On a tagged release commit that is the release before it: HEAD's
-  // own tag would compare the release with itself, and fails in CI until Central has synced it.
-  // MIMA_BASELINE overrides it: `none` for a major, which may break (release-prepare TYPE=major
-  // sets it), or a version.
+  // Where a version of this library is on Maven Central: the JVM module's POM.
+  private def centralPom(v: String) =
+    s"https://repo1.maven.org/maven2/dev/taihei/taihei-tsuji_3/$v/taihei-tsuji_3-$v.pom"
+
+  // Whether Maven Central has a version: 200 yes, 404 no, anything else fails the build, since
+  // a baseline we cannot determine must not turn into no baseline.
+  private def onCentral(v: String): Boolean = {
+    val code = os
+      .proc("curl", "-q", "-s", "--proto", "=https", "--max-time", "30", "-o", "/dev/null", "-w", "%{http_code}", centralPom(v))
+      .call(check = false)
+      .out
+      .trim()
+    code match {
+      case "200" => true
+      case "404" => false
+      case other => sys.error(s"cannot tell whether $v is on Maven Central (HTTP $other): no MiMa baseline")
+    }
+  }
+
+  // The release MiMa compares with: the newest v-tag reachable from HEAD whose version is on Maven
+  // Central, none before firstRelease or majorLine. A release is tagged and pushed once it is on
+  // GitHub Packages, and reaches Central with the next release train (ADR 0003), so the newest tag
+  // may name a version MiMa cannot resolve yet: that tag is named in the log, and the baseline is
+  // the newest tag before it that Central has. At most one version waits at a time, which
+  // release-prepare enforces. On a release itself (an exact v-tag on a clean tree, as in CI on the
+  // tagged commit) that tag is HEAD's own, which would compare the release with itself; so there
+  // the search starts at the commit before it. MIMA_BASELINE overrides it: `none` for a major,
+  // which may break (release-prepare TYPE=major sets it), or a version.
   def mimaBaseline = Task.Input {
     val root = os.Path(sys.env("MILL_WORKSPACE_ROOT"))
+    def git(args: String*) = gitAt(root, args*)
     def numbers(v: String) = v.split('.').toSeq.map(_.toIntOption.getOrElse(0))
-    def git(args: String*) = os.proc("git", args).call(cwd = root, check = false)
+    def atLeast(v: String, floor: String) = Ordering.Implicits.seqOrdering[Seq, Int].gteq(numbers(v), numbers(floor))
     Task.env.get("MIMA_BASELINE").map(_.trim).filter(_.nonEmpty) match {
       case Some("none") => None
       case Some(v)      => Some(v)
       case None         =>
-        val exactTag = git("describe", "--tags", "--exact-match", "--match", "v[0-9]*").exitCode == 0
-        // A root commit has no HEAD^, so describe fails and there is no baseline.
-        val tag = git("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*", if (exactTag) "HEAD^" else "HEAD")
-        Option
-          .when(tag.exitCode == 0)(tag.out.trim().stripPrefix("v"))
-          .filter(v => Ordering.Implicits.seqOrdering[Seq, Int].gteq(numbers(v), numbers(firstRelease)))
-          .filter(v => Ordering.Implicits.seqOrdering[Seq, Int].gteq(numbers(v), numbers(majorLine)))
+        val exactTag = isExactTag(root)
+        val clean    = git("status", "--porcelain").out.text().linesIterator.forall(_.startsWith("??"))
+        // HEAD^ of a root commit does not exist: then there is no tag before it and no baseline.
+        val from   = if (exactTag && clean) "HEAD^" else "HEAD"
+        // Only a root commit has no HEAD^; any other git failure (a shallow clone, say) must not
+        // pass as "no baseline".
+        if (git("rev-parse", "--is-shallow-repository").out.trim() != "false")
+          sys.error("a shallow clone (or git failed): fetch the full history and the tags, or set MIMA_BASELINE")
+        val hasFrom = gitAt(root, "rev-parse", "-q", "--verify", s"$from^{commit}").exitCode == 0
+        if (!hasFrom && from == "HEAD") sys.error("git cannot read HEAD: no MiMa baseline")
+        val listed = git("tag", "--merged", from, "--list", "v[0-9]*", "--sort=-v:refname")
+        if (hasFrom && listed.exitCode != 0)
+          sys.error(s"git tag --merged $from failed: ${listed.err.text().trim()}")
+        val candidates = listed.out
+          .lines()
+          .map(_.trim.stripPrefix("v"))
+          .filter(_.matches("[0-9]+\\.[0-9]+\\.[0-9]+"))
+          .filter(v => atLeast(v, firstRelease) && atLeast(v, majorLine))
+        val (waiting, rest) = candidates.span(v => !onCentral(v))
+        waiting.foreach { v =>
+          Task.log.warn(s"v$v is not on Maven Central yet: it waits for the release train, so MiMa compares with the newest tag on Central")
+        }
+        rest.headOption
     }
   }
 }

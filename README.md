@@ -53,8 +53,10 @@ make compile        # ./mill __.compile           (JVM + JS)
 make test           # ./mill __.test.testForked    (JVM + JS; JS runs on Node)
 make fmt            # ./mill __.reformat
 make fix            # ./mill __.fix                 (scalafix)
-make validate       # fix + fmt + compile + test + mima
-make mima           # binary compatibility with the newest release of the current major
+make validate       # repo-guard + release-test + fix + fmt + compile + test + mima
+make repo-guard     # Maven Central only: no other repository, every dev.taihei pin on Central
+make release-test   # the release machinery's own tests, against a fake registry on localhost
+make mima           # binary compatibility with the newest release of the current major on Central
 make publishLocal   # to ~/.ivy2/local (a SNAPSHOT only)
 ```
 
@@ -64,17 +66,34 @@ The version is the git tag: an exact `v`-tag on a clean tree is the release,
 anything else a SNAPSHOT of the last tag.
 
 ```sh
-make release-prepare TYPE=patch|minor|major   # validate, write RELEASE_x_y_z.md
-make release-finalize                          # commit the notes, tag locally,
-                                               # check Central, publish to it
-git push origin main && git push origin vX.Y.Z # only after the publish succeeded
+make release-prepare TYPE=patch|minor|major EMBARGO=0|1
+                                               # validate, write RELEASE_x_y_z.md
+make release-finalize                          # commit the notes, tag locally, check
+                                               # both registries, build and sign the
+                                               # bundle once, upload it to GitHub
+                                               # Packages and read every file back
+git push origin main && git push origin vX.Y.Z # only after the read-back succeeded
+make release-github                            # the bundle on an immutable GitHub Release
 make publish-dry-run                           # the signed bundle, written to out/
 ```
 
 One release publishes `taihei-tsuji` (JVM and Scala.js) and `taihei-tsuji-tools` with the same
-version. Publishing reads the Central Portal user token and the release key from
-`~/.edo-release.env` or the environment (`MILL_SONATYPE_USERNAME`,
-`MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`, `MILL_PGP_PASSPHRASE`).
+version, as one signed bundle. Its files go unchanged to this repository's GitHub Packages
+registry first, and to Maven Central with the next release train, so a new version can take up to
+a month to reach Central; `SHA256SUMS` on the GitHub Release lists the SHA-256 of every file, and
+both registries serve exactly those bytes. A security fix goes to Central first (`EMBARGO=1`).
+The build itself resolves from Maven Central only, and `make validate` checks it (`repo-guard`).
+A release publishes only the commit `release-prepare` validated, and refuses when a file git does
+not track is in a source or resource folder, or a stray build file is in the tree.
+
+`make publish` is only for a security fix under embargo, which goes to Central first; it refuses
+any other version. It reads the Central Portal user token and the release key from
+`~/.edo-release.env` (a name from the Edo Framework days, kept because the maintainers'
+workstations write it for every library; `RELEASE_ENV=…` points elsewhere) or the environment
+(`MILL_SONATYPE_USERNAME`, `MILL_SONATYPE_PASSWORD`, `MILL_PGP_SECRET_BASE64`,
+`MILL_PGP_PASSPHRASE`). The upload to GitHub Packages reads a `write:packages` token from
+`~/.taihei-packages-publish.env` alone, and the read-back a `read:packages` token from Coursier's
+credentials file (host `maven.pkg.github.com`); neither is ever in `~/.edo-release.env`.
 Releases are signed by the Taihei Framework release key, fingerprint
 `5026 B299 6DDB 697E C463  0BCF 14A7 33E2 A507 702F`, with the user ids
 `Taihei Framework Releases <releases@taihei.dev>` and, from before the family was renamed,

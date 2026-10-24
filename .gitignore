@@ -39,6 +39,11 @@ hs_err_pid*
 .release-state.json
 .release-state.*
 .release-notes.*
+# The signed bundles of releases (ADR 0003), kept until the immutable GitHub Release holds them,
+# the versions under embargo, and repo-guard's scratch directory
+.release-bundles/
+.release-embargo
+.repo-guard.*
 
 # Review reports, kept locally
 reviews/

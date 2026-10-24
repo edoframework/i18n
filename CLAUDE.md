@@ -9,13 +9,23 @@ come from the parent folder's `CLAUDE.md` when this repo is checked out under `~
 ## Commands
 
 ```bash
-make validate          # scalafix, scalafmt, compile, test and MiMa, JVM and Scala.js
-make mima              # binary compatibility with the newest release of the current major
+make validate          # repo-guard, release-test, scalafix, scalafmt, compile, test and MiMa
+make repo-guard        # Maven Central only: no other repository, every dev.taihei pin on Central
+make mima              # binary compatibility with the newest 5.x release tag on Maven Central
 make test              # ./mill __.test.testForked (JS tests run under Node)
+TAIHEI_TEST_JAVA_HOME=<a JDK 17> ./mill tsuji.jvm.test.testForked   # the JVM tests on Java 17
 make publish-dry-run   # the bundle Maven Central would receive, written to out/
-make release-prepare TYPE=patch|minor|major   # then review RELEASE_x_y_z.md
-make release-finalize  # publishes to Maven Central: only with the maintainer's yes
+make release-prepare TYPE=patch|minor|major EMBARGO=0|1   # then review RELEASE_x_y_z.md;
+                       # EMBARGO=1 when the ticket has the label embargo (read it with fude first)
+make release-finalize  # GitHub Packages and the read-back: only with the maintainer's yes
+make release-github    # after the push: the bundle on an immutable GitHub Release
 ```
+
+Releases follow ADR 0003: one signed bundle, uploaded unchanged to this repository's GitHub
+Packages registry, read back, tagged and pushed, kept on an immutable GitHub Release, and taken
+to Maven Central by the next release train in nakama. A security fix (`EMBARGO=1`) goes to
+Central first with `make publish`. The publish token lives in `~/.taihei-packages-publish.env`,
+the read token in Coursier's credentials file; never read or print either.
 
 ## Layout
 
@@ -33,6 +43,8 @@ make release-finalize  # publishes to Maven Central: only with the maintainer's 
 ## Rules
 
 - Whatever is in `shared/` compiles on Scala.js: no JVM-only API there.
+- Java 17 is the JVM floor: the JVM modules compile with `-java-output-version:17`, and CI runs
+  the JVM tests on Java 17 too.
 - Catalogue files and JSON messages are input the application did not compile: bound sizes and
   nesting, never throw, test with adversarial input.
 - MiMa compares within the current major line (`release.majorLine` in `build.mill`).
