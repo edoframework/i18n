@@ -10,15 +10,24 @@ CENTRAL_PATHS = dev/taihei/taihei-tsuji_3 dev/taihei/taihei-tsuji_sjs1_3 dev/tai
 # not track or ignores (an IDE's or scala-cli's working files), so a release refuses when any such
 # file is present, whatever git's settings for untracked files, and when a tracked file there is
 # marked assume-unchanged or skip-worktree, which hides its edits from git status: what is
-# published is what the tag holds.
+# published is what the tag holds. Git keeps a symlink and a submodule as tracked, clean entries,
+# but Mill follows a symlink to whatever it points at (a file outside the repository, such as the
+# release credentials) and a submodule's files are not in the reviewed diff: the guard refuses any
+# tracked entry anywhere in the repository that is not a regular file. A filter attribute (Git
+# LFS, a clean/smudge filter) makes the checkout differ from the reviewed blob, so the guard
+# refuses any file that has one, and it looks for hidden edits in the whole repository.
 SOURCE_DIRS = shared jvm js tools tsuji
 # The build definition decides which modules are published: a stray .mill file anywhere in the
 # tree adds one. So the guard covers it too, and every publishing step checks that exactly the
 # modules below are published.
-BUILD_FILES = '*.mill' '*.mill.yaml' '*.mill.scala' '*.sc' mill-build .mill-version .mill-jvm-opts .config ':(exclude)out'
+BUILD_FILES = '*.mill' '*.mill.yaml' '*.mill.scala' '*.sc' mill-build .mill-version .mill-jvm-opts .mill-opts .config ':(exclude)out'
 STRAY_GUARD = STRAY=$$(git status --porcelain --ignored --untracked-files=all -- $(SOURCE_DIRS) $(BUILD_FILES)); \
-	HIDDEN=$$(git ls-files -v -- $(SOURCE_DIRS) | grep -E '^[a-zS]' || true); \
-	if [ -n "$$STRAY$$HIDDEN" ]; then echo "[ERROR] files git does not track, or hides changes of, would be published:"; echo "$$STRAY$$HIDDEN"; exit 1; fi
+	HIDDEN=$$(git ls-files -v | grep -E '^[a-zS]' || true); \
+	LINKS=$$(git ls-files -s | awk '$$1 != "100644" && $$1 != "100755"'); \
+	FILTERED=$$(git ls-files -z | git check-attr --stdin -z filter | tr '\0' '\n' | paste - - - | awk -F'\t' '$$3 != "unspecified"'); \
+	if [ -n "$$STRAY$$HIDDEN" ]; then echo "[ERROR] files git does not track, or hides changes of, would be published:"; echo "$$STRAY$$HIDDEN"; exit 1; fi; \
+	if [ -n "$$LINKS" ]; then echo "[ERROR] tracked symlinks or submodules, which Mill would follow into a published jar:"; echo "$$LINKS"; exit 1; fi; \
+	if [ -n "$$FILTERED" ]; then echo "[ERROR] files with a git filter, whose checkout differs from the reviewed content:"; echo "$$FILTERED"; exit 1; fi
 
 PUBLISHED = tsuji.js.publishArtifacts tsuji.jvm.publishArtifacts tsuji.tools.publishArtifacts
 MODULE_GUARD = MODULES=$$(./mill resolve __.publishArtifacts | sort | tr '\n' ' ' | sed 's/ $$//'); \
