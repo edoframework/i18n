@@ -30,7 +30,26 @@ final class Language private (val tag: String) extends Serializable:
     val primary = tag.takeWhile(_ != '-')
     if primary == tag then this else Language.fromCanonical(primary)
 
+  /** The JDK locale of this language's tag, `Locale.forLanguageTag(tag)`. */
+  @deprecated(
+    "Moves off the shared Language in 6.0.0: on the JVM it becomes an extension method that needs no import, on Scala.js it is gone. Locale.forLanguageTag(language.tag) works in 5.x and 6.x on both platforms",
+    "5.1.0",
+  )
   def locale: Locale = Locale.forLanguageTag(tag)
+
+  /**
+   * The script subtag, if the tag has one: `zh-Hant-TW` gives `Some("Hant")`, `nl-BE` gives
+   * `None`. Only the subtags before the variants count; nothing inside an extension or private
+   * use does.
+   */
+  def script: Option[String] = Language.scriptAndRegion(tag)._1
+
+  /**
+   * The region subtag, if the tag has one: `nl-BE` gives `Some("BE")`, `es-419` gives
+   * `Some("419")`, `de-1996` gives `None`. An extlang is skipped (`zh-yue-HK` gives `Some("HK")`)
+   * and nothing inside an extension or private use counts (`en-x-us` gives `None`).
+   */
+  def region: Option[String] = Language.scriptAndRegion(tag)._2
 
   /**
    * The language's name, as a message in the reader's language: `Dutch.label` shows as "Dutch" to
@@ -54,7 +73,12 @@ final class Language private (val tag: String) extends Serializable:
 
 end Language
 
-object Language:
+/**
+ * The companion. Beside the factories here, the JVM adds `Language.fromLocale(java.util.Locale)`;
+ * a platform locale type only ever appears as the argument of such a factory, never in a return
+ * type or a field, so `Language` and its JSON form stay the same on every platform.
+ */
+object Language extends LanguagePlatform:
 
   val English: Language = new Language("en")
   val Dutch: Language   = new Language("nl")
@@ -201,6 +225,44 @@ object Language:
 
   /** The language for a BCP 47 tag; English for anything that is not one. */
   def of(isoCode: String): Language = parse(isoCode).getOrElse(defaultLanguage)
+
+  /**
+   * The languages the platform prefers, most preferred first: on the JVM the default display
+   * locale (`Locale.getDefault(Locale.Category.DISPLAY)`); in JavaScript `navigator.languages`,
+   * else `navigator.language`, else the locale of `Intl.DateTimeFormat`. A tag that is not a
+   * language (`und`) or not well formed is dropped, as is a repeat. The result may be empty and
+   * holds no fallback, so a caller picks one:
+   *
+   * {{{
+   * val language = Language.preferred.headOption.getOrElse(Language.defaultLanguage)
+   * }}}
+   *
+   * It reads the platform on every call and never throws.
+   */
+  def preferred: Vector[Language] = fromPlatformTags(PlatformPreferredLanguages.tags)
+
+  /**
+   * The language of a tag a platform locale gave: `parse`, except that a tag without a language
+   * (`und`, `und-US`, the tag of `Locale.ROOT`) is refused instead of read as a language.
+   */
+  private[tsuji] def fromPlatformTag(tag: String): Either[String, Language] =
+    parse(tag).flatMap: language =>
+      if language.tag == "und" || language.tag.startsWith("und-") then
+        Left(s"Not a language: '${language.tag}' names none")
+      else Right(language)
+
+  /** The languages of the platform's tags, in order, without the ones refused and without repeats. */
+  private[tsuji] def fromPlatformTags(tags: Seq[String]): Vector[Language] =
+    tags.iterator.flatMap(t => fromPlatformTag(t).toOption).distinct.toVector
+
+  // The script and the region of a well-formed, canonical tag. The subtags before them have
+  // shapes neither shares (a language, up to three three-letter extlangs), and a singleton ends
+  // the search, so nothing in an extension or private use is taken for either.
+  private def scriptAndRegion(tag: String): (Option[String], Option[String]) =
+    val subtags = tag.split('-').toVector.drop(1).takeWhile(_.length > 1).dropWhile(isExtlang)
+    val script  = subtags.headOption.filter(isScript)
+    val next    = if script.isDefined then subtags.drop(1) else subtags
+    (script, next.headOption.filter(isRegion))
 
   /** A built-in's name or any tag: the two forms the JSON codecs read. */
   private def decode(s: String): Either[String, Language] =

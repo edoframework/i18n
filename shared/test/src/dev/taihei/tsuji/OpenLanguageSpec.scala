@@ -32,7 +32,8 @@ object OpenLanguageSpec extends ZIOSpecDefault:
           !German.isDefault,
           German.toString == "de",
           German.base == German,
-          German.locale.getLanguage == "de",
+          German.base.tag == "de",
+          German.region.isEmpty,
         )
       },
       test("a tag is canonicalized and compared by value") {
@@ -60,7 +61,7 @@ object OpenLanguageSpec extends ZIOSpecDefault:
         assertTrue(
           Flemish.base == Dutch,
           Language("fr-BE").base == French,
-          Flemish.locale.getCountry == "BE",
+          Flemish.region.contains("BE"),
         )
       },
       test("longer tags are canonicalized subtag by subtag") {
